@@ -58,23 +58,69 @@ export interface UploadResponse {
 // ============================================
 
 /**
- * Upload CSV file with wearable data
+ * Upload CSV file with wearable data (with progress tracking)
  */
 export const uploadWearableCSV = async (
-  file: File
+  file: File,
+  onProgress?: (progress: number) => void
 ): Promise<ApiResponse<UploadResponse>> => {
-  const formData = new FormData();
-  formData.append('file', file);
+  return new Promise((resolve, reject) => {
+    const formData = new FormData();
+    formData.append('file', file);
 
-  return api.post<UploadResponse>(
-    '/wearable/upload',
-    formData,
-    {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+    const xhr = new XMLHttpRequest();
+    const token = localStorage.getItem('auth_token');
+
+    // Track upload progress
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable && onProgress) {
+        const percentComplete = (e.loaded / e.total) * 100;
+        onProgress(percentComplete);
+      }
+    });
+
+    // Handle completion
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const response = JSON.parse(xhr.responseText);
+          resolve({
+            data: response,
+            success: true,
+          });
+        } catch (error) {
+          reject(new Error('Failed to parse response'));
+        }
+      } else {
+        try {
+          const errorResponse = JSON.parse(xhr.responseText);
+          reject(new Error(errorResponse.message || 'Upload failed'));
+        } catch {
+          reject(new Error(`Upload failed with status ${xhr.status}`));
+        }
+      }
+    });
+
+    // Handle errors
+    xhr.addEventListener('error', () => {
+      reject(new Error('Network error during upload'));
+    });
+
+    // Handle abort
+    xhr.addEventListener('abort', () => {
+      reject(new Error('Upload cancelled'));
+    });
+
+    // Open and send request
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+    xhr.open('POST', `${apiBaseUrl}/wearable/upload`);
+    
+    if (token) {
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     }
-  );
+
+    xhr.send(formData);
+  });
 };
 
 /**

@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { Upload, FileText, CheckCircle2, AlertCircle, X, Loader2 } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, AlertCircle, X, Loader2, Clock } from 'lucide-react';
 import { uploadWearableCSV, type UploadResponse } from '../../api/wearableService';
 import {
   Layout,
@@ -20,18 +20,89 @@ export const WearableUploadPage = () => {
   const [file, setFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [actualUploadProgress, setActualUploadProgress] = useState(0);
+  const [estimatedTime, setEstimatedTime] = useState<number | null>(null);
+  const [processingPhase, setProcessingPhase] = useState(false);
+  const uploadStartTime = useRef<number | null>(null);
+  const progressInterval = useRef<NodeJS.Timeout | null>(null);
+
+  // Calculate estimated processing time based on file size
+  const estimateProcessingTime = (fileSize: number, rowCount?: number): number => {
+    // Base estimate: ~100ms per KB for upload + ~10ms per row for processing
+    // For a 542KB file with ~7000 rows: ~54s upload + ~70s processing = ~2 minutes
+    const uploadTime = (fileSize / 1024) * 100; // ms
+    const processingTime = rowCount ? rowCount * 10 : (fileSize / 1024) * 50; // ms
+    return Math.ceil((uploadTime + processingTime) / 1000); // seconds
+  };
 
   // Upload mutation
   const uploadMutation = useMutation({
-    mutationFn: (file: File) => uploadWearableCSV(file),
+    mutationFn: async (file: File) => {
+      uploadStartTime.current = Date.now();
+      setUploadProgress(0);
+      setActualUploadProgress(0);
+      setProcessingPhase(false);
+      
+      // Estimate row count from file size (rough estimate: ~100 bytes per row)
+      const estimatedRows = Math.ceil(file.size / 100);
+      setEstimatedTime(estimateProcessingTime(file.size, estimatedRows));
+
+      return uploadWearableCSV(file, (progress) => {
+        setActualUploadProgress(progress);
+        // Upload phase: 0-80%, Processing phase: 80-100%
+        // We track upload progress, then show processing
+        if (progress < 100) {
+          // Scale upload progress to 0-80%
+          setUploadProgress(progress * 0.8);
+          setProcessingPhase(false);
+          
+          // Calculate estimated time remaining for upload
+          if (uploadStartTime.current && progress > 0) {
+            const elapsed = (Date.now() - uploadStartTime.current) / 1000; // seconds
+            const uploadTotalEstimated = elapsed / (progress / 100);
+            const uploadRemaining = Math.max(0, uploadTotalEstimated - elapsed);
+            
+            // Add estimated processing time
+            const estimatedRows = Math.ceil(file.size / 100);
+            const processingTime = estimatedRows * 0.01; // seconds per row
+            setEstimatedTime(Math.ceil(uploadRemaining + processingTime));
+          }
+        } else {
+          // Upload complete, now processing
+          setUploadProgress(80);
+          setProcessingPhase(true);
+          // Estimate processing time based on file size
+          const estimatedRows = Math.ceil(file.size / 100);
+          const processingTime = estimatedRows * 0.01; // seconds
+          setEstimatedTime(Math.ceil(processingTime));
+        }
+      });
+    },
     onSuccess: (response) => {
+      setUploadProgress(100);
+      setActualUploadProgress(100);
+      setProcessingPhase(false);
       if (response.data?.data) {
         setUploadResult(response.data.data);
         setFile(null);
       }
+      if (progressInterval.current) {
+        clearInterval(progressInterval.current);
+      }
+      uploadStartTime.current = null;
+      setEstimatedTime(null);
     },
     onError: (error: Error) => {
       console.error('Upload error:', error);
+      setUploadProgress(0);
+      setActualUploadProgress(0);
+      setEstimatedTime(null);
+      setProcessingPhase(false);
+      if (progressInterval.current) {
+        clearInterval(progressInterval.current);
+      }
+      uploadStartTime.current = null;
     },
   });
 
@@ -82,6 +153,23 @@ export const WearableUploadPage = () => {
   const handleReset = () => {
     setFile(null);
     setUploadResult(null);
+    setUploadProgress(0);
+    setActualUploadProgress(0);
+    setEstimatedTime(null);
+    setProcessingPhase(false);
+    if (progressInterval.current) {
+      clearInterval(progressInterval.current);
+    }
+    uploadStartTime.current = null;
+  };
+
+  // Format time estimate
+  const formatTimeEstimate = (seconds: number | null): string => {
+    if (seconds === null || seconds === 0) return '';
+    if (seconds < 60) return `~${seconds}s remaining`;
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `~${minutes}m ${secs}s remaining`;
   };
 
   return (
@@ -131,8 +219,52 @@ export const WearableUploadPage = () => {
                       <p className="text-lg font-medium text-gray-900">{file.name}</p>
                       <p className="text-sm text-gray-500">
                         {(file.size / 1024).toFixed(2)} KB
+                        {file.size > 100000 && (
+                          <span className="ml-2 text-xs text-gray-400">
+                            (Large file - processing may take a few minutes)
+                          </span>
+                        )}
                       </p>
                     </div>
+
+                    {/* Progress Bar */}
+                    {uploadMutation.isPending && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">
+                            {processingPhase ? 'Processing CSV file...' : 'Uploading file...'}
+                          </span>
+                          <span className="text-gray-500">{Math.round(uploadProgress)}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden relative">
+                          <div
+                            className="bg-blue-600 h-full rounded-full transition-all duration-300 ease-out"
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                          {processingPhase && uploadProgress < 100 && (
+                            <div className="absolute inset-0 bg-blue-400 animate-pulse" style={{ width: '80%' }} />
+                          )}
+                        </div>
+                        {estimatedTime !== null && estimatedTime > 0 && (
+                          <div className="flex items-center gap-1 text-xs text-gray-500">
+                            <Clock className="w-3 h-3" />
+                            <span>{formatTimeEstimate(estimatedTime)}</span>
+                          </div>
+                        )}
+                        <p className="text-xs text-gray-400 text-center">
+                          {processingPhase ? (
+                            <>
+                              Parsing CSV and inserting {Math.ceil(file.size / 100)} estimated rows into database...
+                            </>
+                          ) : (
+                            <>
+                              Uploading file ({((file.size / 1024) * actualUploadProgress / 100).toFixed(1)} KB of {(file.size / 1024).toFixed(1)} KB)
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    )}
+
                     <div className="flex gap-3 justify-center">
                       <Button
                         onClick={handleUpload}
@@ -152,7 +284,11 @@ export const WearableUploadPage = () => {
                         )}
                       </Button>
                       <Button
-                        onClick={() => setFile(null)}
+                        onClick={() => {
+                          setFile(null);
+                          setUploadProgress(0);
+                          setEstimatedTime(null);
+                        }}
                         variant="outline"
                         disabled={uploadMutation.isPending}
                       >

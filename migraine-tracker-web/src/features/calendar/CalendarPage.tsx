@@ -170,7 +170,7 @@ export const CalendarPage = () => {
     // Ensure we use the correct date - construct it from the current month/year and day number
     // This avoids any timezone issues from the API response
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(dayNumber).padStart(2, '0')}`;
-    
+
     if (day.isMigraineDay) {
       // Remove manual marker
       removeMutation.mutate(dateStr);
@@ -254,7 +254,7 @@ export const CalendarPage = () => {
             )}
           </div>
           <div className="flex flex-col gap-1 mt-auto">
-            {day.hasData && (
+          {day.hasData && (
               <div className="flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3 text-green-600 dark:text-green-400 flex-shrink-0" />
                 <span className="text-xs text-gray-600 dark:text-gray-400">{day.dataPoints}</span>
@@ -263,8 +263,8 @@ export const CalendarPage = () => {
             {day.migraineCount && day.migraineCount > 0 && (
               <div className="text-xs font-medium text-red-700 dark:text-red-400">
                 {day.migraineCount} {day.migraineCount === 1 ? 'entry' : 'entries'}
-              </div>
-            )}
+            </div>
+          )}
           </div>
         </div>
       </button>
@@ -364,42 +364,42 @@ export const CalendarPage = () => {
         <Card>
           <CardHeader>
             <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <CalendarIcon className="w-5 h-5" />
-                    {getMonthName()}
-                  </CardTitle>
-                  <CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <CalendarIcon className="w-5 h-5" />
+                  {getMonthName()}
+                </CardTitle>
+                <CardDescription>
                     Days with migraine logs are automatically marked and counted
-                  </CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigateMonth('prev')}
-                    disabled={isLoading}
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentDate(new Date())}
-                    disabled={isLoading}
-                  >
-                    Today
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigateMonth('next')}
-                    disabled={isLoading}
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                </div>
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigateMonth('prev')}
+                  disabled={isLoading}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentDate(new Date())}
+                  disabled={isLoading}
+                >
+                  Today
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigateMonth('next')}
+                  disabled={isLoading}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
               </div>
               
               {/* Deselect All Button */}

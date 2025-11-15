@@ -85,7 +85,7 @@ export const Modal = ({
       aria-labelledby={title ? 'modal-title' : undefined}
     >
       <div
-        className={`bg-white rounded-lg shadow-2xl w-full ${sizeStyles[size]} animate-in zoom-in-95 duration-200`}
+        className={`bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full ${sizeStyles[size]} animate-in zoom-in-95 duration-200`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -103,7 +103,7 @@ export const Modal = ({
             {showCloseButton && (
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 dark:text-gray-400 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-lg p-1"
+                className="text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-lg p-1"
                 aria-label="Close modal"
               >
                 <X size={24} />

@@ -170,18 +170,33 @@ ${formatCorrelationPatterns(patterns)}
 
 ## Instructions
 
-Please analyze the above data and provide:
+Please analyze the above data and provide a 12-hour migraine risk assessment.
 
-1. **Risk Level (0-100%):** Overall migraine probability in the next 12 hours
-2. **Risk Category:** Low (0-25%), Moderate (25-50%), High (50-75%), Very High (75-100%)
-3. **Key Risk Factors:** List the top 3-5 metrics or patterns that are contributing to the risk
-4. **Trend Analysis:** How current metrics compare to the user's historical migraine patterns
-5. **Recommendations:** Specific preventive actions the user should consider
-6. **Confidence Level:** How confident you are in this assessment (Low/Medium/High)
+**IMPORTANT: Return your response in BOTH formats:**
 
-Please provide a clear, actionable analysis that a migraine sufferer can understand and act upon. Focus on comparing current metrics to the user's historical patterns that have correlated with migraines.
+### 1. JSON Format (First - for parsing):
+Start your response with a JSON object on its own line:
+\`\`\`json
+{
+  "riskLevel": <number 0-100>,
+  "riskCategory": "<Low|Moderate|High|Very High>",
+  "keyRiskFactors": ["factor1", "factor2", "factor3"],
+  "recommendations": ["rec1", "rec2", "rec3"],
+  "trendAnalysis": "brief summary",
+  "confidenceLevel": "<Low|Medium|High>"
+}
+\`\`\`
 
-Format your response in a clear, structured way with sections for each of the above points.`;
+### 2. Human-Readable Analysis (After the JSON):
+Then provide a detailed analysis with:
+1. **Risk Level:** Explanation of the percentage
+2. **Risk Category:** Classification and reasoning
+3. **Key Risk Factors:** Detailed list with comparisons to historical patterns
+4. **Trend Analysis:** How current metrics compare to migraine patterns
+5. **Recommendations:** Specific, actionable preventive steps
+6. **Confidence Level:** Reasoning for your confidence
+
+Focus on comparing current metrics to the user's historical patterns that have correlated with migraines.`;
 
   return prompt;
 };

@@ -45,6 +45,7 @@ export const DashboardPage = () => {
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('do_ai_agent_api_key') || '');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showFullAnalysis, setShowFullAnalysis] = useState(false);
   
   // Simulated data for testing
   const [useSimulatedData, setUseSimulatedData] = useState(true);
@@ -61,6 +62,7 @@ export const DashboardPage = () => {
   const getAIAnalysisMutation = useMutation({
     mutationFn: async () => {
       setIsAnalyzing(true);
+      setShowFullAnalysis(false); // Close the raw response section when starting new analysis
       
       // Step 1: Generate prompt
       const dataToSend = useSimulatedData ? simulatedData : undefined;
@@ -492,30 +494,47 @@ export const DashboardPage = () => {
                           strokeWidth="16"
                           fill="none"
                         />
-                        <circle
-                          cx="96"
-                          cy="96"
-                          r="88"
-                          stroke={
-                            aiAnalysis.riskLevel >= 75 ? '#DC2626' :
-                            aiAnalysis.riskLevel >= 50 ? '#EA580C' :
-                            aiAnalysis.riskLevel >= 25 ? '#F59E0B' :
-                            '#10B981'
-                          }
-                          strokeWidth="16"
-                          fill="none"
-                          strokeDasharray={`${aiAnalysis.riskLevel * 5.53} 553`}
-                          strokeLinecap="round"
-                          className="transition-all duration-1000 ease-out"
-                        />
+                        {aiAnalysis.riskLevel > 0 && (
+                          <circle
+                            cx="96"
+                            cy="96"
+                            r="88"
+                            stroke={
+                              aiAnalysis.riskLevel >= 75 ? '#DC2626' :
+                              aiAnalysis.riskLevel >= 50 ? '#EA580C' :
+                              aiAnalysis.riskLevel >= 25 ? '#F59E0B' :
+                              '#10B981'
+                            }
+                            strokeWidth="16"
+                            fill="none"
+                            strokeDasharray={`${aiAnalysis.riskLevel * 5.53} 553`}
+                            strokeLinecap="round"
+                            className="transition-all duration-1000 ease-out"
+                          />
+                        )}
                       </svg>
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-5xl font-bold text-gray-900">{aiAnalysis.riskLevel}%</span>
-                        <span className="text-sm font-medium text-gray-600 mt-2">{aiAnalysis.riskCategory} Risk</span>
+                        {aiAnalysis.riskLevel > 0 ? (
+                          <>
+                            <span className="text-5xl font-bold text-gray-900">{aiAnalysis.riskLevel}%</span>
+                            <span className="text-sm font-medium text-gray-600 mt-2">12 Hour Risk</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-4xl font-bold text-gray-400">N/A</span>
+                            <span className="text-sm font-medium text-gray-500 mt-2">Unable to Calculate</span>
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="mt-4 text-center">
-                      <p className="text-xs text-gray-500">Confidence: <span className="font-semibold">{aiAnalysis.confidenceLevel}</span></p>
+                      <p className="text-xs text-gray-600">
+                        {aiAnalysis.riskLevel > 0 ? (
+                          <span className="font-semibold">{aiAnalysis.riskCategory}</span>
+                        ) : (
+                          <span className="text-gray-400">No risk data available</span>
+                        )}
+                      </p>
                     </div>
                   </div>
 
@@ -561,14 +580,24 @@ export const DashboardPage = () => {
                   </div>
                 </div>
 
-                {/* Full Analysis Text */}
+                {/* Full Analysis Text - Collapsible */}
                 <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <h4 className="text-sm font-bold text-gray-900 mb-3">📄 Complete AI Analysis</h4>
-                  <div className="bg-white rounded p-4 max-h-96 overflow-y-auto">
-                    <pre className="text-sm text-gray-800 whitespace-pre-wrap font-sans">
-                      {aiAnalysis.fullAnalysis}
-                    </pre>
-                  </div>
+                  <button
+                    onClick={() => setShowFullAnalysis(!showFullAnalysis)}
+                    className="w-full flex items-center justify-between text-left hover:bg-gray-100 rounded p-2 transition-colors"
+                  >
+                    <h4 className="text-sm font-bold text-gray-900">📄 Complete AI Analysis (Raw Response)</h4>
+                    <span className="text-gray-600">
+                      {showFullAnalysis ? '▼' : '▶'}
+                    </span>
+                  </button>
+                  {showFullAnalysis && (
+                    <div className="bg-white rounded p-4 max-h-96 overflow-y-auto mt-3">
+                      <pre className="text-sm text-gray-800 whitespace-pre-wrap font-sans">
+                        {aiAnalysis.fullAnalysis}
+                      </pre>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

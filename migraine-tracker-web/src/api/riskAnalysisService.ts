@@ -181,45 +181,103 @@ export const callAIAgent = async (prompt: string): Promise<AIAnalysisResponse> =
 function parseAIResponse(text: string): AIAnalysisResponse {
   console.log('Parsing AI response (first 500 chars):', text.substring(0, 500));
   
-  // Extract risk level percentage - multiple patterns including markdown formatting
-  let riskLevel = 0;
-  const patterns = [
-    /\*\*Risk Level\*\*[:\s]*(\d+)%/i,           // **Risk Level:** 80%
-    /Risk Level[:\s*-]+(\d+)%/i,                 // Risk Level: 80%
-    /(?:risk level|risk)[:\s-]*(\d+)%/i,         // risk level: 80%
-    /(\d+)%[:\s]*risk/i,                         // 80% risk
-    /(\d+)%\s*(?:risk|chance|probability)/i,     // 80% chance
-    /(?:likelihood|probability|chance)[:\s-]*(\d+)%/i, // likelihood: 80%
-  ];
+  // STEP 1: Try to extract JSON first (most reliable)
   
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match) {
-      riskLevel = parseInt(match[1]);
-      console.log(`✅ Found risk level: ${riskLevel}% using pattern: ${pattern}`);
-      break;
+  // Try 1a: JSON in markdown code block
+  const jsonMatch = text.match(/```json\s*\n([\s\S]*?)\n```/);
+  if (jsonMatch) {
+    try {
+      const jsonData = JSON.parse(jsonMatch[1]);
+      console.log('✅ Successfully parsed JSON from markdown code block:', jsonData);
+      
+      return {
+        riskLevel: parseInt(jsonData.riskLevel) || 0,
+        riskCategory: jsonData.riskCategory || 'Unknown',
+        keyRiskFactors: Array.isArray(jsonData.keyRiskFactors) ? jsonData.keyRiskFactors : [],
+        trendAnalysis: jsonData.trendAnalysis || '',
+        recommendations: Array.isArray(jsonData.recommendations) ? jsonData.recommendations : [],
+        confidenceLevel: jsonData.confidenceLevel || 'Unknown',
+        fullAnalysis: text,
+      };
+    } catch (e) {
+      console.warn('⚠️ Found JSON block but failed to parse:', e);
+    }
+  }
+  
+  // Try 1b: JSON object at start of response (without code block)
+  const jsonObjectMatch = text.match(/^\s*\{[\s\S]*?"riskLevel"[\s\S]*?\}/);
+  if (jsonObjectMatch) {
+    try {
+      const jsonData = JSON.parse(jsonObjectMatch[0]);
+      console.log('✅ Successfully parsed JSON object from response:', jsonData);
+      
+      return {
+        riskLevel: parseInt(jsonData.riskLevel) || 0,
+        riskCategory: jsonData.riskCategory || 'Unknown',
+        keyRiskFactors: Array.isArray(jsonData.keyRiskFactors) ? jsonData.keyRiskFactors : [],
+        trendAnalysis: jsonData.trendAnalysis || '',
+        recommendations: Array.isArray(jsonData.recommendations) ? jsonData.recommendations : [],
+        confidenceLevel: jsonData.confidenceLevel || 'Unknown',
+        fullAnalysis: text,
+      };
+    } catch (e) {
+      console.warn('⚠️ Found JSON object but failed to parse:', e);
+    }
+  }
+  
+  // STEP 2: Fallback to text parsing if JSON not found
+  console.log('No JSON found, falling back to text parsing...');
+  
+  // Extract risk level percentage - ONLY from the Risk Level section at the beginning
+  // This prevents matching wrong numbers later in the text
+  let riskLevel = 0;
+  
+  // Step 1: Extract just the Risk Level section (first ~200 chars should contain it)
+  const riskLevelSection = text.substring(0, 300);
+  console.log('Risk Level section:', riskLevelSection);
+  
+  // Step 2: Look for "Risk Level" line and extract the first number after it
+  const riskLevelMatch = riskLevelSection.match(/\*\*Risk Level[^\n]*\*\*[:\s]*[~≈]?\s*(\d+)\s*[%℅]/i);
+  
+  if (riskLevelMatch) {
+    riskLevel = parseInt(riskLevelMatch[1]);
+    console.log(`✅ Found risk level: ${riskLevel}% in Risk Level section`);
+  } else {
+    // Fallback: try simpler patterns but still only in first 300 chars
+    const fallbackPatterns = [
+      /Risk Level[^\n]*[:\s]*[~≈]?\s*(\d+)\s*[%℅]/i,
+      /\*\*Risk[^\n]*\*\*[:\s]*[~≈]?\s*(\d+)\s*[%℅]/i,
+    ];
+    
+    for (const pattern of fallbackPatterns) {
+      const match = riskLevelSection.match(pattern);
+      if (match) {
+        riskLevel = parseInt(match[1]);
+        console.log(`✅ Found risk level: ${riskLevel}% using fallback pattern`);
+        break;
+      }
     }
   }
   
   if (riskLevel === 0) {
-    console.warn('⚠️ Could not extract risk level from response. Checking raw text...');
-    console.log('Full response length:', text.length);
-    console.log('First 1000 characters:', text.substring(0, 1000));
-    console.log('Looking for "Risk Level" or "risk level":', text.toLowerCase().includes('risk level'));
+    console.warn('⚠️ Could not extract risk level from response.');
+    console.log('Risk Level section (first 300 chars):', riskLevelSection);
+    console.log('Looking for "Risk Level":', riskLevelSection.toLowerCase().includes('risk level'));
     
-    // Try to find any percentage in the text
-    const anyPercentMatch = text.match(/(\d+)%/);
+    // Try to find ANY number followed by % in the first section
+    const anyPercentMatch = riskLevelSection.match(/[~≈]?\s*(\d+)\s*[%℅]/);
     if (anyPercentMatch) {
-      console.log('Found a percentage in text:', anyPercentMatch[0], 'at position', anyPercentMatch.index);
-      console.log('Context around it:', text.substring(Math.max(0, anyPercentMatch.index! - 50), anyPercentMatch.index! + 50));
+      console.log('Found a percentage in first section:', anyPercentMatch[0]);
+      console.log('Attempting to use:', parseInt(anyPercentMatch[1]));
+      // Don't auto-use it, just log for debugging
     }
   }
 
-  // Extract risk category - handle markdown formatting
+  // Extract risk category - handle markdown formatting and parenthetical notes
   const categoryPatterns = [
-    /\*\*Risk Category\*\*[:\s]*(Very High|High|Moderate|Low)/i,
-    /Risk Category[:\s*-]+(Very High|High|Moderate|Low)/i,
-    /(?:risk category|category)[:\s-]*(Very High|High|Moderate|Low)/i,
+    /\*\*Risk Category\*\*[:\s]*(Very High|High|Moderate|Low)[^a-zA-Z]*/i,
+    /Risk Category[:\s*-]+(Very High|High|Moderate|Low)[^a-zA-Z]*/i,
+    /(?:risk category|category)[:\s-]*(Very High|High|Moderate|Low)[^a-zA-Z]*/i,
   ];
   
   let riskCategory = 'Unknown';

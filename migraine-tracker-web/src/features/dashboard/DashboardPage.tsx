@@ -41,12 +41,10 @@ import RecentEntries from './RecentEntries';
  */
 export const DashboardPage = () => {
   const navigate = useNavigate();
-  const [showPrompt, setShowPrompt] = useState(false);
-  const [promptData, setPromptData] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('do_ai_agent_api_key') || '');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   
   // Simulated data for testing
   const [useSimulatedData, setUseSimulatedData] = useState(true);
@@ -59,58 +57,39 @@ export const DashboardPage = () => {
     skinTemp: 33.5
   });
 
-  // Generate AI prompt mutation
-  const generatePromptMutation = useMutation({
-    mutationFn: () => {
+  // Combined mutation: Generate prompt and get AI analysis in one flow
+  const getAIAnalysisMutation = useMutation({
+    mutationFn: async () => {
+      setIsAnalyzing(true);
+      
+      // Step 1: Generate prompt
       const dataToSend = useSimulatedData ? simulatedData : undefined;
-      return getRiskAnalysisPrompt(dataToSend);
-    },
-    onSuccess: (response) => {
-      console.log('Prompt generation response:', response);
-      // Backend returns {success: true, data: {prompt, summary, metadata}}
-      // apiClient wraps it as {data: backendResponse, success: true}
-      // So we need response.data.data.prompt
-      if (response?.data?.data?.prompt) {
-        setPromptData(response.data.data.prompt);
-        setShowPrompt(true);
+      const promptResponse = await getRiskAnalysisPrompt(dataToSend);
+      
+      console.log('Prompt generation response:', promptResponse);
+      
+      // Extract prompt from response
+      let prompt = '';
+      if (promptResponse?.data?.data?.prompt) {
+        prompt = promptResponse.data.data.prompt;
       } else {
-        console.error('Unexpected response structure:', response);
-        alert('Received unexpected response from server');
+        throw new Error('Failed to generate prompt');
       }
+      
+      // Step 2: Call AI agent with the prompt
+      const analysis = await callAIAgent(prompt);
+      return analysis;
     },
-    onError: (error: any) => {
-      console.error('Error generating prompt:', error);
-      alert(error.message || 'Failed to generate risk analysis prompt');
-    }
-  });
-
-  // Call AI agent mutation
-  const callAIMutation = useMutation({
-    mutationFn: (prompt: string) => callAIAgent(prompt),
     onSuccess: (analysis) => {
       setAiAnalysis(analysis);
+      setIsAnalyzing(false);
     },
     onError: (error: any) => {
-      console.error('Error calling AI agent:', error);
-      alert('Failed to get AI analysis. Please try again.');
+      console.error('Error in AI analysis:', error);
+      setIsAnalyzing(false);
+      alert(error.message || 'Failed to get AI analysis. Please try again.');
     }
   });
-
-  // Copy prompt to clipboard
-  const handleCopyPrompt = () => {
-    if (promptData) {
-      navigator.clipboard.writeText(promptData);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  // Get AI analysis
-  const handleGetAIAnalysis = () => {
-    if (promptData) {
-      callAIMutation.mutate(promptData);
-    }
-  };
 
   // Save API key to localStorage
   const handleSaveApiKey = () => {
@@ -280,212 +259,6 @@ export const DashboardPage = () => {
           </Card>
         </div>
 
-        {/* Simulated Data Panel for Testing */}
-        <Card padding="lg" className="border-2 border-blue-200 bg-blue-50">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Simulate Current Data (for Testing)</CardTitle>
-                <CardDescription>
-                  Adjust these sliders to simulate current wearable metrics and test AI predictions
-                </CardDescription>
-              </div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={useSimulatedData}
-                  onChange={(e) => setUseSimulatedData(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                />
-                <span className="text-sm font-medium text-gray-700">Use Simulated Data</span>
-              </label>
-            </div>
-          </CardHeader>
-
-          {useSimulatedData && (
-            <div className="mt-6 space-y-6">
-              {/* Stress Level */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Stress Level
-                  </label>
-                  <span className="text-lg font-bold text-gray-900">{simulatedData.stress}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={simulatedData.stress}
-                  onChange={(e) => setSimulatedData(prev => ({ ...prev, stress: parseInt(e.target.value) }))}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-red-500"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>Low (0)</span>
-                  <span>High (100)</span>
-                </div>
-              </div>
-
-              {/* Recovery Score */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Recovery Score
-                  </label>
-                  <span className="text-lg font-bold text-gray-900">{simulatedData.recovery}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={simulatedData.recovery}
-                  onChange={(e) => setSimulatedData(prev => ({ ...prev, recovery: parseInt(e.target.value) }))}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-green-500"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>Poor (0)</span>
-                  <span>Excellent (100)</span>
-                </div>
-              </div>
-
-              {/* HRV */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Heart Rate Variability (HRV)
-                  </label>
-                  <span className="text-lg font-bold text-gray-900">{simulatedData.hrv} ms</span>
-                </div>
-                <input
-                  type="range"
-                  min="10"
-                  max="100"
-                  value={simulatedData.hrv}
-                  onChange={(e) => setSimulatedData(prev => ({ ...prev, hrv: parseInt(e.target.value) }))}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>Low (10ms)</span>
-                  <span>High (100ms)</span>
-                </div>
-              </div>
-
-              {/* Heart Rate */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Heart Rate
-                  </label>
-                  <span className="text-lg font-bold text-gray-900">{simulatedData.heartRate} bpm</span>
-                </div>
-                <input
-                  type="range"
-                  min="40"
-                  max="120"
-                  value={simulatedData.heartRate}
-                  onChange={(e) => setSimulatedData(prev => ({ ...prev, heartRate: parseInt(e.target.value) }))}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-pink-500"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>Rest (40)</span>
-                  <span>Active (120)</span>
-                </div>
-              </div>
-
-              {/* Sleep Efficiency */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Sleep Efficiency
-                  </label>
-                  <span className="text-lg font-bold text-gray-900">{simulatedData.sleepEfficiency}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={simulatedData.sleepEfficiency}
-                  onChange={(e) => setSimulatedData(prev => ({ ...prev, sleepEfficiency: parseInt(e.target.value) }))}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>Poor (0%)</span>
-                  <span>Perfect (100%)</span>
-                </div>
-              </div>
-
-              {/* Skin Temperature */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Skin Temperature
-                  </label>
-                  <span className="text-lg font-bold text-gray-900">{simulatedData.skinTemp.toFixed(1)}°C</span>
-                </div>
-                <input
-                  type="range"
-                  min="30"
-                  max="37"
-                  step="0.1"
-                  value={simulatedData.skinTemp}
-                  onChange={(e) => setSimulatedData(prev => ({ ...prev, skinTemp: parseFloat(e.target.value) }))}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-500"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>Cool (30°C)</span>
-                  <span>Warm (37°C)</span>
-                </div>
-              </div>
-
-              {/* Preset Scenarios */}
-              <div className="pt-4 border-t border-blue-200">
-                <p className="text-sm font-medium text-gray-700 mb-3">Quick Presets:</p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => setSimulatedData({
-                      stress: 65,
-                      recovery: 25,
-                      hrv: 25,
-                      heartRate: 85,
-                      sleepEfficiency: 60,
-                      skinTemp: 34.5
-                    })}
-                    className="px-4 py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
-                  >
-                    🚨 High Risk
-                  </button>
-                  <button
-                    onClick={() => setSimulatedData({
-                      stress: 35,
-                      recovery: 55,
-                      hrv: 40,
-                      heartRate: 70,
-                      sleepEfficiency: 75,
-                      skinTemp: 33.5
-                    })}
-                    className="px-4 py-2 text-sm bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors"
-                  >
-                    ⚠️ Moderate Risk
-                  </button>
-                  <button
-                    onClick={() => setSimulatedData({
-                      stress: 20,
-                      recovery: 75,
-                      hrv: 55,
-                      heartRate: 60,
-                      sleepEfficiency: 90,
-                      skinTemp: 33.0
-                    })}
-                    className="px-4 py-2 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
-                  >
-                    ✅ Low Risk
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </Card>
-
         {/* AI API Key Configuration Warning */}
         {!apiKey && (
           <Card padding="lg" className="border-2 border-yellow-200 bg-yellow-50">
@@ -576,72 +349,124 @@ export const DashboardPage = () => {
             </div>
           </CardHeader>
 
-          <div className="mt-6 space-y-4">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button
-                variant="primary"
-                leftIcon={<Brain size={20} />}
-                onClick={() => generatePromptMutation.mutate()}
-                disabled={generatePromptMutation.isPending}
-                className="flex-1 sm:flex-initial"
-              >
-                {generatePromptMutation.isPending ? 'Generating...' : 'Generate Risk Analysis Prompt'}
-              </Button>
-              {promptData && (
-                <>
-                  <Button
-                    variant="secondary"
-                    leftIcon={copied ? <CheckCircle2 size={20} /> : <Copy size={20} />}
-                    onClick={handleCopyPrompt}
-                    className="flex-1 sm:flex-initial"
-                  >
-                    {copied ? 'Copied!' : 'Copy to Clipboard'}
-                  </Button>
-                  <Button
-                    variant="primary"
-                    leftIcon={<Brain size={20} />}
-                    onClick={handleGetAIAnalysis}
-                    disabled={callAIMutation.isPending}
-                    className="flex-1 sm:flex-initial bg-gradient-to-r from-purple-600 to-blue-600"
-                  >
-                    {callAIMutation.isPending ? 'Analyzing...' : 'Get AI Analysis'}
-                  </Button>
-                </>
+          <div className="mt-6 space-y-6">
+            {/* Simulated Data Section */}
+            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">Test with Simulated Data</h3>
+                  <p className="text-xs text-gray-600">Adjust metrics to test different risk scenarios</p>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useSimulatedData}
+                    onChange={(e) => setUseSimulatedData(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Use Simulated Data</span>
+                </label>
+              </div>
+
+              {useSimulatedData && (
+                <div className="space-y-4">
+                  {/* Quick Presets at top */}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setSimulatedData({ stress: 65, recovery: 25, hrv: 25, heartRate: 85, sleepEfficiency: 60, skinTemp: 34.5 })}
+                      className="px-3 py-1.5 text-xs bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors font-medium"
+                    >
+                      🚨 High Risk
+                    </button>
+                    <button
+                      onClick={() => setSimulatedData({ stress: 35, recovery: 55, hrv: 40, heartRate: 70, sleepEfficiency: 75, skinTemp: 33.5 })}
+                      className="px-3 py-1.5 text-xs bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors font-medium"
+                    >
+                      ⚠️ Moderate Risk
+                    </button>
+                    <button
+                      onClick={() => setSimulatedData({ stress: 20, recovery: 75, hrv: 55, heartRate: 60, sleepEfficiency: 90, skinTemp: 33.0 })}
+                      className="px-3 py-1.5 text-xs bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors font-medium"
+                    >
+                      ✅ Low Risk
+                    </button>
+                  </div>
+
+                  {/* Compact sliders - 2 columns */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Stress */}
+                    <div className="bg-white p-2 rounded">
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-xs font-medium text-gray-700">Stress</label>
+                        <span className="text-sm font-bold text-gray-900">{simulatedData.stress}</span>
+                      </div>
+                      <input type="range" min="0" max="100" value={simulatedData.stress} onChange={(e) => setSimulatedData(prev => ({ ...prev, stress: parseInt(e.target.value) }))} className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-red-500" />
+                    </div>
+
+                    {/* Recovery */}
+                    <div className="bg-white p-2 rounded">
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-xs font-medium text-gray-700">Recovery</label>
+                        <span className="text-sm font-bold text-gray-900">{simulatedData.recovery}</span>
+                      </div>
+                      <input type="range" min="0" max="100" value={simulatedData.recovery} onChange={(e) => setSimulatedData(prev => ({ ...prev, recovery: parseInt(e.target.value) }))} className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-green-500" />
+                    </div>
+
+                    {/* HRV */}
+                    <div className="bg-white p-2 rounded">
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-xs font-medium text-gray-700">HRV</label>
+                        <span className="text-sm font-bold text-gray-900">{simulatedData.hrv}ms</span>
+                      </div>
+                      <input type="range" min="0" max="100" value={simulatedData.hrv} onChange={(e) => setSimulatedData(prev => ({ ...prev, hrv: parseInt(e.target.value) }))} className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+                    </div>
+
+                    {/* Heart Rate */}
+                    <div className="bg-white p-2 rounded">
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-xs font-medium text-gray-700">Heart Rate</label>
+                        <span className="text-sm font-bold text-gray-900">{simulatedData.heartRate} bpm</span>
+                      </div>
+                      <input type="range" min="40" max="120" value={simulatedData.heartRate} onChange={(e) => setSimulatedData(prev => ({ ...prev, heartRate: parseInt(e.target.value) }))} className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-500" />
+                    </div>
+
+                    {/* Sleep Efficiency */}
+                    <div className="bg-white p-2 rounded">
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-xs font-medium text-gray-700">Sleep Efficiency</label>
+                        <span className="text-sm font-bold text-gray-900">{simulatedData.sleepEfficiency}%</span>
+                      </div>
+                      <input type="range" min="0" max="100" value={simulatedData.sleepEfficiency} onChange={(e) => setSimulatedData(prev => ({ ...prev, sleepEfficiency: parseInt(e.target.value) }))} className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
+                    </div>
+
+                    {/* Skin Temperature */}
+                    <div className="bg-white p-2 rounded">
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-xs font-medium text-gray-700">Skin Temp</label>
+                        <span className="text-sm font-bold text-gray-900">{simulatedData.skinTemp.toFixed(1)}°C</span>
+                      </div>
+                      <input type="range" min="30" max="37" step="0.1" value={simulatedData.skinTemp} onChange={(e) => setSimulatedData(prev => ({ ...prev, skinTemp: parseFloat(e.target.value) }))} className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-500" />
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
 
-            {showPrompt && promptData && (
-              <div className="mt-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-gray-700">
-                    AI Prompt Ready
-                  </h3>
-                  <button
-                    onClick={() => setShowPrompt(false)}
-                    className="text-sm text-gray-500 hover:text-gray-700"
-                  >
-                    Hide
-                  </button>
-                </div>
-                <div className="bg-white border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto">
-                  <pre className="text-sm text-gray-800 whitespace-pre-wrap font-mono">
-                    {promptData}
-                  </pre>
-                </div>
-                <p className="text-xs text-gray-600">
-                  💡 <strong>Next Step:</strong> Copy this prompt and paste it into your DigitalOcean AI agent endpoint to get your personalized migraine risk analysis.
-                </p>
-              </div>
-            )}
+            {/* Action Button */}
+            <Button
+              variant="primary"
+              leftIcon={<Brain size={24} />}
+              onClick={() => getAIAnalysisMutation.mutate()}
+              disabled={getAIAnalysisMutation.isPending || isAnalyzing}
+              className="w-full py-4 text-lg font-semibold bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+            >
+              {isAnalyzing ? 'Analyzing...' : 'Get AI Risk Analysis'}
+            </Button>
 
-            {generatePromptMutation.isError && (
+            {getAIAnalysisMutation.isError && (
               <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">
-                <p>Failed to generate prompt. Make sure you have:</p>
-                <ul className="list-disc list-inside mt-2 ml-2">
-                  <li>Uploaded wearable data (last 24 hours)</li>
-                  <li>Marked migraine days in the calendar</li>
-                  <li>Completed your user profile</li>
-                </ul>
+                <p className="font-semibold mb-1">Failed to analyze risk</p>
+                <p className="text-xs">Please ensure you have uploaded wearable data and marked migraine days in the calendar.</p>
               </div>
             )}
 

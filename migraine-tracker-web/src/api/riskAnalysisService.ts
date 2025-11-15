@@ -167,12 +167,27 @@ export const callAIAgent = async (prompt: string): Promise<AIAnalysisResponse> =
  * Parse AI response text into structured format
  */
 function parseAIResponse(text: string): AIAnalysisResponse {
-  // Extract risk level percentage
-  const riskLevelMatch = text.match(/(?:Risk Level|risk level)[:\s]*(\d+)%/i);
-  const riskLevel = riskLevelMatch ? parseInt(riskLevelMatch[1]) : 0;
+  console.log('Parsing AI response:', text.substring(0, 500));
+  
+  // Extract risk level percentage - multiple patterns
+  let riskLevel = 0;
+  const patterns = [
+    /(?:Risk Level|risk level|risk)[:\s-]*(\d+)%/i,
+    /(\d+)%\s*(?:risk|chance|probability)/i,
+    /(?:likelihood|probability|chance)[:\s-]*(\d+)%/i,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) {
+      riskLevel = parseInt(match[1]);
+      console.log(`Found risk level: ${riskLevel}% using pattern: ${pattern}`);
+      break;
+    }
+  }
 
   // Extract risk category
-  const categoryMatch = text.match(/(?:Risk Category|category)[:\s]*(Low|Moderate|High|Very High)/i);
+  const categoryMatch = text.match(/(?:Risk Category|risk category|category)[:\s-]*(Low|Moderate|High|Very High)/i);
   const riskCategory = categoryMatch ? categoryMatch[1] : 'Unknown';
 
   // Extract key risk factors

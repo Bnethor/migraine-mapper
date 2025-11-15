@@ -9,7 +9,8 @@ import {
   LogOut, 
   Menu, 
   X,
-  User 
+  User,
+  Upload
 } from 'lucide-react';
 import { useAuth } from '../../features/auth/AuthContext';
 import { Button } from './Button';
@@ -51,6 +52,11 @@ export const Layout = ({ children }: LayoutProps) => {
       path: '/migraines/new',
       label: 'New Entry',
       icon: PlusCircle,
+    },
+    {
+      path: '/wearable/upload',
+      label: 'Upload Data',
+      icon: Upload,
     },
   ];
 

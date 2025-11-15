@@ -1,8 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
+import multer from 'multer';
 import 'dotenv/config';
 import { query, closePool } from './db/database.js';
+import { parseWearableCSV, detectSource } from './utils/csvParser.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,6 +13,24 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Configure multer for file uploads (memory storage)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept CSV files
+    if (file.mimetype === 'text/csv' || 
+        file.mimetype === 'application/vnd.ms-excel' ||
+        file.originalname.toLowerCase().endsWith('.csv')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only CSV files are allowed'), false);
+    }
+  }
+});
 
 // ============================================
 // HELPER FUNCTIONS
@@ -1026,6 +1046,274 @@ app.delete('/api/migraine/:id', authenticate, async (req, res) => {
 });
 
 // ============================================
+// WEARABLE DATA ROUTES
+// ============================================
+
+// Upload CSV file with wearable data
+app.post('/api/wearable/upload', authenticate, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded. Please select a CSV file.'
+      });
+    }
+
+    // Parse CSV file
+    let parsedData;
+    try {
+      parsedData = await parseWearableCSV(req.file.buffer);
+    } catch (error) {
+      console.error('CSV parsing error:', error);
+      return res.status(400).json({
+        success: false,
+        message: 'Failed to parse CSV file. Please check the file format.',
+        error: error.message
+      });
+    }
+
+    if (!parsedData.data || parsedData.data.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid data found in CSV file. Please check that the file contains timestamp and metric data.'
+      });
+    }
+
+    // Detect source device
+    const source = detectSource(
+      Object.keys(parsedData.fieldMapping),
+      req.file.originalname
+    );
+
+    // Insert data into database
+    const insertedRows = [];
+    const errors = [];
+
+    for (const row of parsedData.data) {
+      try {
+        // Check if record already exists (same user, same timestamp)
+        const existing = await query(
+          `SELECT id FROM wearable_data 
+           WHERE user_id = $1 AND timestamp = $2`,
+          [req.userId, row.timestamp]
+        );
+
+        if (existing.rows.length > 0) {
+          // Update existing record
+          const result = await query(
+            `UPDATE wearable_data SET
+              stress_value = COALESCE($1, stress_value),
+              recovery_value = COALESCE($2, recovery_value),
+              heart_rate = COALESCE($3, heart_rate),
+              hrv = COALESCE($4, hrv),
+              sleep_efficiency = COALESCE($5, sleep_efficiency),
+              sleep_heart_rate = COALESCE($6, sleep_heart_rate),
+              skin_temperature = COALESCE($7, skin_temperature),
+              restless_periods = COALESCE($8, restless_periods),
+              additional_data = COALESCE($9, additional_data),
+              source = COALESCE($10, source),
+              updated_at = CURRENT_TIMESTAMP
+            WHERE user_id = $11 AND timestamp = $12
+            RETURNING id`,
+            [
+              row.stress_value,
+              row.recovery_value,
+              row.heart_rate,
+              row.hrv,
+              row.sleep_efficiency,
+              row.sleep_heart_rate,
+              row.skin_temperature,
+              row.restless_periods,
+              Object.keys(row.additional_data).length > 0 ? JSON.stringify(row.additional_data) : null,
+              source,
+              req.userId,
+              row.timestamp
+            ]
+          );
+          insertedRows.push(result.rows[0].id);
+        } else {
+          // Insert new record
+          const result = await query(
+            `INSERT INTO wearable_data 
+             (user_id, timestamp, stress_value, recovery_value, heart_rate, hrv,
+              sleep_efficiency, sleep_heart_rate, skin_temperature, restless_periods,
+              additional_data, source)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+             RETURNING id`,
+            [
+              req.userId,
+              row.timestamp,
+              row.stress_value,
+              row.recovery_value,
+              row.heart_rate,
+              row.hrv,
+              row.sleep_efficiency,
+              row.sleep_heart_rate,
+              row.skin_temperature,
+              row.restless_periods,
+              Object.keys(row.additional_data).length > 0 ? JSON.stringify(row.additional_data) : null,
+              source
+            ]
+          );
+          insertedRows.push(result.rows[0].id);
+        }
+      } catch (error) {
+        console.error('Error inserting row:', error);
+        errors.push({
+          timestamp: row.timestamp,
+          error: error.message
+        });
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      data: {
+        inserted: insertedRows.length,
+        total: parsedData.data.length,
+        errors: errors.length,
+        source,
+        fieldMapping: parsedData.fieldMapping,
+        unrecognizedFields: parsedData.unrecognizedFields,
+        errorDetails: errors.length > 0 ? errors : undefined
+      },
+      message: `Successfully processed ${insertedRows.length} of ${parsedData.data.length} rows`
+    });
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error processing CSV file',
+      error: error.message
+    });
+  }
+});
+
+// Get wearable data for user
+app.get('/api/wearable', authenticate, async (req, res) => {
+  try {
+    const { startDate, endDate, limit = '1000' } = req.query;
+    
+    let queryText = `
+      SELECT id, timestamp, stress_value, recovery_value, heart_rate, hrv,
+             sleep_efficiency, sleep_heart_rate, skin_temperature, restless_periods,
+             additional_data, source, created_at
+      FROM wearable_data
+      WHERE user_id = $1
+    `;
+    const queryParams = [req.userId];
+
+    if (startDate) {
+      queryText += ` AND timestamp >= $${queryParams.length + 1}`;
+      queryParams.push(startDate);
+    }
+
+    if (endDate) {
+      queryText += ` AND timestamp <= $${queryParams.length + 1}`;
+      queryParams.push(endDate);
+    }
+
+    queryText += ` ORDER BY timestamp DESC LIMIT $${queryParams.length + 1}`;
+    queryParams.push(parseInt(limit));
+
+    const result = await query(queryText, queryParams);
+
+    const data = result.rows.map(row => ({
+      id: row.id,
+      timestamp: row.timestamp.toISOString(),
+      stressValue: row.stress_value,
+      recoveryValue: row.recovery_value,
+      heartRate: row.heart_rate,
+      hrv: row.hrv,
+      sleepEfficiency: row.sleep_efficiency,
+      sleepHeartRate: row.sleep_heart_rate,
+      skinTemperature: row.skin_temperature,
+      restlessPeriods: row.restless_periods,
+      additionalData: row.additional_data,
+      source: row.source,
+      createdAt: row.created_at.toISOString()
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        entries: data,
+        count: data.length
+      }
+    });
+  } catch (error) {
+    console.error('Get wearable data error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching wearable data'
+    });
+  }
+});
+
+// Get wearable data statistics
+app.get('/api/wearable/statistics', authenticate, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    let queryText = `
+      SELECT 
+        COUNT(*) as total_records,
+        AVG(stress_value) as avg_stress,
+        AVG(recovery_value) as avg_recovery,
+        AVG(heart_rate) as avg_heart_rate,
+        AVG(hrv) as avg_hrv,
+        AVG(sleep_efficiency) as avg_sleep_efficiency,
+        AVG(sleep_heart_rate) as avg_sleep_heart_rate,
+        AVG(skin_temperature) as avg_skin_temperature,
+        MIN(timestamp) as earliest_date,
+        MAX(timestamp) as latest_date
+      FROM wearable_data
+      WHERE user_id = $1
+    `;
+    const queryParams = [req.userId];
+
+    if (startDate) {
+      queryText += ` AND timestamp >= $${queryParams.length + 1}`;
+      queryParams.push(startDate);
+    }
+
+    if (endDate) {
+      queryText += ` AND timestamp <= $${queryParams.length + 1}`;
+      queryParams.push(endDate);
+    }
+
+    const result = await query(queryText, queryParams);
+    const stats = result.rows[0];
+
+    res.json({
+      success: true,
+      data: {
+        totalRecords: parseInt(stats.total_records) || 0,
+        averages: {
+          stress: stats.avg_stress ? parseFloat(stats.avg_stress) : null,
+          recovery: stats.avg_recovery ? parseFloat(stats.avg_recovery) : null,
+          heartRate: stats.avg_heart_rate ? parseFloat(stats.avg_heart_rate) : null,
+          hrv: stats.avg_hrv ? parseFloat(stats.avg_hrv) : null,
+          sleepEfficiency: stats.avg_sleep_efficiency ? parseFloat(stats.avg_sleep_efficiency) : null,
+          sleepHeartRate: stats.avg_sleep_heart_rate ? parseFloat(stats.avg_sleep_heart_rate) : null,
+          skinTemperature: stats.avg_skin_temperature ? parseFloat(stats.avg_skin_temperature) : null
+        },
+        dateRange: {
+          earliest: stats.earliest_date ? stats.earliest_date.toISOString() : null,
+          latest: stats.latest_date ? stats.latest_date.toISOString() : null
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get wearable statistics error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching wearable statistics'
+    });
+  }
+});
+
+// ============================================
 // HEALTH CHECK
 // ============================================
 
@@ -1105,5 +1393,8 @@ app.listen(PORT, () => {
   console.log(`   DELETE /api/migraine/:id`);
   console.log(`   GET    /api/migraine/statistics`);
   console.log(`   GET    /api/migraine/recent`);
+  console.log(`   POST   /api/wearable/upload`);
+  console.log(`   GET    /api/wearable`);
+  console.log(`   GET    /api/wearable/statistics`);
   console.log(`\n🔐 Demo user: demo@example.com / demo123`);
 });

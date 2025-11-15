@@ -110,6 +110,8 @@ export const ProfilePage = () => {
     mutationFn: (data: Partial<UserProfile>) => profileService.updateProfile(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+      // Also invalidate dashboard to update notification
+      queryClient.invalidateQueries({ queryKey: ['migraine-stats'] });
       setSuccess(true);
       setError(null);
       setTimeout(() => setSuccess(false), 3000);

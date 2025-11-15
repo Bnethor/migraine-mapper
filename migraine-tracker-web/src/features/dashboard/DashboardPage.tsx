@@ -1,14 +1,17 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
   Calendar, 
   TrendingUp, 
   AlertCircle, 
   Activity,
-  Plus 
+  Plus,
+  User,
+  X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { migraineService } from '../../api/migraineService';
+import { profileService } from '../../api/profileService';
 import { processSummaryIndicators } from '../../api/summaryService';
 import { 
   Layout, 
@@ -37,6 +40,16 @@ import RecentEntries from './RecentEntries';
  */
 export const DashboardPage = () => {
   const navigate = useNavigate();
+  const [dismissedProfileNotification, setDismissedProfileNotification] = useState(false);
+
+  // Fetch user profile
+  const { data: profile } = useQuery({
+    queryKey: ['user-profile'],
+    queryFn: () => profileService.getProfile(),
+  });
+
+  const isProfileComplete = profileService.isProfileComplete(profile);
+  const showProfileNotification = !isProfileComplete && !dismissedProfileNotification;
 
   // Process summary indicators when entering dashboard
   useEffect(() => {
@@ -114,6 +127,50 @@ export const DashboardPage = () => {
   return (
     <Layout>
       <div className="space-y-6">
+        {/* Profile Incomplete Notification */}
+        {showProfileNotification && (
+          <Card padding="md" className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0">
+                <div className="p-2 bg-yellow-100 dark:bg-yellow-900/50 rounded-lg">
+                  <User className="text-yellow-600 dark:text-yellow-400" size={20} />
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-yellow-800 dark:text-yellow-300 mb-1">
+                  Complete Your Clinical Profile
+                </h3>
+                <p className="text-sm text-yellow-700 dark:text-yellow-400 mb-3">
+                  Your clinical profile helps us provide better insights and pattern analysis. Please fill out your typical migraine characteristics.
+                </p>
+                <div className="flex gap-3">
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => navigate('/profile')}
+                  >
+                    Go to Profile
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setDismissedProfileNotification(true)}
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              </div>
+              <button
+                onClick={() => setDismissedProfileNotification(true)}
+                className="flex-shrink-0 text-yellow-600 dark:text-yellow-400 hover:text-yellow-800 dark:hover:text-yellow-300"
+                aria-label="Dismiss notification"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </Card>
+        )}
+
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>

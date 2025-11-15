@@ -100,25 +100,35 @@ export const analyzeMigraineCorrelations = async (userId) => {
     return values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : null;
   };
 
-  // Helper function to calculate correlation
+  // Helper function to calculate correlation (Cohen's d effect size)
   const calculateCorrelation = (migraineValues, normalValues) => {
     const migraineAvg = avg(migraineValues, 'value');
     const normalAvg = avg(normalValues, 'value');
     
     if (migraineAvg === null || normalAvg === null) return null;
     
-    // Simple correlation: difference in means normalized
+    // Calculate difference in means
     const diff = migraineAvg - normalAvg;
-    const pooledStd = Math.sqrt(
-      (migraineValues.length * Math.pow(migraineValues.reduce((s, v) => s + Math.pow(v.value - migraineAvg, 2), 0) / migraineValues.length, 2) +
-       normalValues.length * Math.pow(normalValues.reduce((s, v) => s + Math.pow(v.value - normalAvg, 2), 0) / normalValues.length, 2)) /
-      (migraineValues.length + normalValues.length)
-    );
+    
+    // Calculate pooled standard deviation (correct formula)
+    const migraineVariance = migraineValues.reduce((s, v) => s + Math.pow(v.value - migraineAvg, 2), 0) / migraineValues.length;
+    const normalVariance = normalValues.reduce((s, v) => s + Math.pow(v.value - normalAvg, 2), 0) / normalValues.length;
+    const pooledVariance = (migraineValues.length * migraineVariance + normalValues.length * normalVariance) / 
+                           (migraineValues.length + normalValues.length);
+    const pooledStd = Math.sqrt(pooledVariance);
     
     if (pooledStd === 0) return 0;
     
-    // Normalize to -1 to 1 range
-    const correlation = Math.max(-1, Math.min(1, diff / (pooledStd * 2)));
+    // Calculate Cohen's d (effect size)
+    const cohensD = diff / pooledStd;
+    
+    // Convert to correlation-like value (-1 to 1 range)
+    // Cohen's d typically ranges from -3 to 3, we'll normalize it
+    // Small effect: 0.2, Medium: 0.5, Large: 0.8
+    const correlation = Math.max(-1, Math.min(1, cohensD / 3));
+    
+    console.log(`Correlation analysis: diff=${diff.toFixed(2)}, pooledStd=${pooledStd.toFixed(2)}, cohensD=${cohensD.toFixed(3)}, correlation=${correlation.toFixed(3)}`);
+    
     return correlation;
   };
 
@@ -131,9 +141,11 @@ export const analyzeMigraineCorrelations = async (userId) => {
   if (migraineStress.length > 0 && normalStress.length > 0) {
     const migraineAvg = avg(migraineDayData, 'avgStress');
     const normalAvg = avg(normalDayData, 'avgStress');
+    console.log(`Analyzing stress: migraine avg=${migraineAvg?.toFixed(2)}, normal avg=${normalAvg?.toFixed(2)}`);
     const correlation = calculateCorrelation(migraineStress, normalStress);
     
-    if (correlation !== null && Math.abs(correlation) > 0.2) {
+    // Lowered threshold from 0.2 to 0.05 for more sensitivity
+    if (correlation !== null && Math.abs(correlation) > 0.05) {
       const threshold = normalAvg + (migraineAvg - normalAvg) * 0.7; // 70% of the way to migraine avg
       patterns.push({
         patternType: 'high_stress',
@@ -162,7 +174,7 @@ export const analyzeMigraineCorrelations = async (userId) => {
     const normalAvg = avg(normalDayData, 'maxStress');
     const correlation = calculateCorrelation(migraineMaxStress, normalMaxStress);
     
-    if (correlation !== null && Math.abs(correlation) > 0.2) {
+    if (correlation !== null && Math.abs(correlation) > 0.05) {
       const threshold = normalAvg + (migraineAvg - normalAvg) * 0.7;
       patterns.push({
         patternType: 'stress_spike',
@@ -191,7 +203,7 @@ export const analyzeMigraineCorrelations = async (userId) => {
     const normalAvg = avg(normalDayData, 'avgRecovery');
     const correlation = calculateCorrelation(migraineRecovery, normalRecovery);
     
-    if (correlation !== null && correlation < -0.2) { // Negative correlation (lower recovery = more migraines)
+    if (correlation !== null && correlation < -0.05) { // Negative correlation (lower recovery = more migraines)
       const threshold = normalAvg - (normalAvg - migraineAvg) * 0.7;
       patterns.push({
         patternType: 'low_recovery',
@@ -220,7 +232,7 @@ export const analyzeMigraineCorrelations = async (userId) => {
     const normalAvg = avg(normalDayData, 'avgHrv');
     const correlation = calculateCorrelation(migraineHrv, normalHrv);
     
-    if (correlation !== null && correlation < -0.2) {
+    if (correlation !== null && correlation < -0.05) {
       const threshold = normalAvg - (normalAvg - migraineAvg) * 0.7;
       patterns.push({
         patternType: 'low_hrv',
@@ -249,7 +261,7 @@ export const analyzeMigraineCorrelations = async (userId) => {
     const normalAvg = avg(normalDayData, 'avgSleepEfficiency');
     const correlation = calculateCorrelation(migraineSleep, normalSleep);
     
-    if (correlation !== null && correlation < -0.2) {
+    if (correlation !== null && correlation < -0.05) {
       const threshold = normalAvg - (normalAvg - migraineAvg) * 0.7;
       patterns.push({
         patternType: 'poor_sleep',
@@ -278,7 +290,7 @@ export const analyzeMigraineCorrelations = async (userId) => {
     const normalAvg = avg(normalDayData, 'stressVolatility');
     const correlation = calculateCorrelation(migraineStressVol, normalStressVol);
     
-    if (correlation !== null && correlation > 0.2) {
+    if (correlation !== null && correlation > 0.05) {
       const threshold = normalAvg + (migraineAvg - normalAvg) * 0.7;
       patterns.push({
         patternType: 'stress_volatility',

@@ -6,9 +6,10 @@ import { Readable } from 'stream';
  * Maps various possible column names to standardized field names
  */
 const FIELD_MAPPINGS = {
-  // Timestamp/Date fields
+  // Timestamp/Date fields (order matters - more specific first)
+  // IMPORTANT: 'date' alone should NOT be a timestamp if 'datetime' exists
   timestamp: [
-    'datetime', 'timestamp', 'date_time', 'date', 'time', 
+    'datetime', 'timestamp', 'date_time', 
     'recorded_at', 'measured_at', 'created_at'
   ],
   
@@ -236,11 +237,17 @@ export const parseWearableCSV = (fileBuffer) => {
             if (matchedField === 'timestamp') {
               try {
                 // Clean the value (remove extra spaces, handle semicolon-separated dates)
-                const cleanValue = value.trim().replace(/;/g, ' ');
+                let cleanValue = value.trim().replace(/;/g, ' ');
+                
+                // Convert space-separated datetime to ISO format for reliable parsing
+                // Format: "2025-01-01 01:00:00" -> "2025-01-01T01:00:00Z"
+                // Add Z to force UTC interpretation (no timezone shift)
+                cleanValue = cleanValue.replace(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})/, '$1T$2Z');
+                
                 parsedValue = new Date(cleanValue);
                 
                 if (isNaN(parsedValue.getTime())) {
-                  console.warn(`Failed to parse timestamp: ${value}`);
+                  console.warn(`Failed to parse timestamp: ${value} (cleaned: ${cleanValue})`);
                   return; // Skip this row if timestamp is invalid
                 }
                 parsedRow.timestamp = parsedValue;

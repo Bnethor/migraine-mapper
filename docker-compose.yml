@@ -13,7 +13,9 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./migraine-tracker-api/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./migraine-tracker-api/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./migraine-tracker-api/db/migration_001_add_clinical_fields.sql:/docker-entrypoint-initdb.d/02-migration_001.sql
+      - ./migraine-tracker-api/db/migration_002_user_profile.sql:/docker-entrypoint-initdb.d/03-migration_002.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U migraineuser -d migrainetracker"]
       interval: 10s

@@ -1,8 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
+import multer from 'multer';
 import 'dotenv/config';
 import { query, closePool } from './db/database.js';
+import { parseWearableCSV, detectSource } from './utils/csvParser.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,6 +13,24 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Configure multer for file uploads (memory storage)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept CSV files
+    if (file.mimetype === 'text/csv' || 
+        file.mimetype === 'application/vnd.ms-excel' ||
+        file.originalname.toLowerCase().endsWith('.csv')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only CSV files are allowed'), false);
+    }
+  }
+});
 
 // ============================================
 // HELPER FUNCTIONS
@@ -1026,6 +1046,468 @@ app.delete('/api/migraine/:id', authenticate, async (req, res) => {
 });
 
 // ============================================
+// WEARABLE DATA ROUTES
+// ============================================
+
+// Upload CSV file with wearable data
+app.post('/api/wearable/upload', authenticate, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded. Please select a CSV file.'
+      });
+    }
+
+    // Parse CSV file
+    let parsedData;
+    try {
+      parsedData = await parseWearableCSV(req.file.buffer);
+    } catch (error) {
+      console.error('CSV parsing error:', error);
+      return res.status(400).json({
+        success: false,
+        message: 'Failed to parse CSV file. Please check the file format.',
+        error: error.message
+      });
+    }
+
+    if (!parsedData.data || parsedData.data.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid data found in CSV file. Please check that the file contains timestamp and metric data.'
+      });
+    }
+
+    // Detect source device
+    const source = detectSource(
+      Object.keys(parsedData.fieldMapping),
+      req.file.originalname
+    );
+
+    // Create upload session
+    const sessionResult = await query(
+      `INSERT INTO upload_sessions 
+       (user_id, filename, file_size, source, total_rows, field_mapping, unrecognized_fields, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'processing')
+       RETURNING id`,
+      [
+        req.userId,
+        req.file.originalname,
+        req.file.size,
+        source,
+        parsedData.data.length,
+        JSON.stringify(parsedData.fieldMapping),
+        parsedData.unrecognizedFields.length > 0 ? parsedData.unrecognizedFields : null
+      ]
+    );
+    const uploadSessionId = sessionResult.rows[0].id;
+
+    // Process data with duplicate detection
+    let insertedCount = 0;
+    let updatedCount = 0;
+    let skippedCount = 0;
+    const errors = [];
+
+    for (const row of parsedData.data) {
+      try {
+        // Check if record already exists (same user, same timestamp)
+        const existing = await query(
+          `SELECT id, upload_session_id FROM wearable_data 
+           WHERE user_id = $1 AND timestamp = $2`,
+          [req.userId, row.timestamp]
+        );
+
+        if (existing.rows.length > 0) {
+          const existingRecord = existing.rows[0];
+          
+          // If it's from the same upload session, skip (duplicate in same file)
+          if (existingRecord.upload_session_id === uploadSessionId) {
+            skippedCount++;
+            continue;
+          }
+          
+          // If it's from a different upload, update it
+          const result = await query(
+            `UPDATE wearable_data SET
+              stress_value = COALESCE($1, stress_value),
+              recovery_value = COALESCE($2, recovery_value),
+              heart_rate = COALESCE($3, heart_rate),
+              hrv = COALESCE($4, hrv),
+              sleep_efficiency = COALESCE($5, sleep_efficiency),
+              sleep_heart_rate = COALESCE($6, sleep_heart_rate),
+              skin_temperature = COALESCE($7, skin_temperature),
+              restless_periods = COALESCE($8, restless_periods),
+              additional_data = COALESCE($9, additional_data),
+              source = COALESCE($10, source),
+              upload_session_id = $11,
+              updated_at = CURRENT_TIMESTAMP
+            WHERE user_id = $12 AND timestamp = $13
+            RETURNING id`,
+            [
+              row.stress_value,
+              row.recovery_value,
+              row.heart_rate,
+              row.hrv,
+              row.sleep_efficiency,
+              row.sleep_heart_rate,
+              row.skin_temperature,
+              row.restless_periods,
+              Object.keys(row.additional_data).length > 0 ? JSON.stringify(row.additional_data) : null,
+              source,
+              uploadSessionId,
+              req.userId,
+              row.timestamp
+            ]
+          );
+          updatedCount++;
+        } else {
+          // Insert new record with upload session reference
+          try {
+            const result = await query(
+              `INSERT INTO wearable_data 
+               (user_id, timestamp, stress_value, recovery_value, heart_rate, hrv,
+                sleep_efficiency, sleep_heart_rate, skin_temperature, restless_periods,
+                additional_data, source, upload_session_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+               RETURNING id`,
+              [
+                req.userId,
+                row.timestamp,
+                row.stress_value,
+                row.recovery_value,
+                row.heart_rate,
+                row.hrv,
+                row.sleep_efficiency,
+                row.sleep_heart_rate,
+                row.skin_temperature,
+                row.restless_periods,
+                Object.keys(row.additional_data).length > 0 ? JSON.stringify(row.additional_data) : null,
+                source,
+                uploadSessionId
+              ]
+            );
+            insertedCount++;
+          } catch (insertError) {
+            // Handle unique constraint violation (duplicate timestamp)
+            if (insertError.code === '23505') {
+              skippedCount++;
+            } else {
+              throw insertError;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error processing row:', error);
+        errors.push({
+          timestamp: row.timestamp,
+          error: error.message
+        });
+      }
+    }
+
+    // Update upload session with final statistics
+    const status = errors.length === parsedData.data.length ? 'failed' : 
+                   errors.length > 0 ? 'partial' : 'completed';
+    
+    await query(
+      `UPDATE upload_sessions SET
+        inserted_rows = $1,
+        updated_rows = $2,
+        skipped_rows = $3,
+        error_rows = $4,
+        status = $5,
+        updated_at = CURRENT_TIMESTAMP
+       WHERE id = $6`,
+      [insertedCount, updatedCount, skippedCount, errors.length, status, uploadSessionId]
+    );
+
+    res.status(201).json({
+      success: true,
+      data: {
+        uploadSessionId,
+        inserted: insertedCount,
+        updated: updatedCount,
+        skipped: skippedCount,
+        total: parsedData.data.length,
+        errors: errors.length,
+        source,
+        fieldMapping: parsedData.fieldMapping,
+        unrecognizedFields: parsedData.unrecognizedFields,
+        errorDetails: errors.length > 0 ? errors : undefined
+      },
+      message: `Successfully processed ${insertedCount + updatedCount} of ${parsedData.data.length} rows (${insertedCount} new, ${updatedCount} updated, ${skippedCount} skipped)`
+    });
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error processing CSV file',
+      error: error.message
+    });
+  }
+});
+
+// Get wearable data for user
+app.get('/api/wearable', authenticate, async (req, res) => {
+  try {
+    const { startDate, endDate, limit = '1000' } = req.query;
+    
+    let queryText = `
+      SELECT id, timestamp, stress_value, recovery_value, heart_rate, hrv,
+             sleep_efficiency, sleep_heart_rate, skin_temperature, restless_periods,
+             additional_data, source, created_at
+      FROM wearable_data
+      WHERE user_id = $1
+    `;
+    const queryParams = [req.userId];
+
+    if (startDate) {
+      queryText += ` AND timestamp >= $${queryParams.length + 1}`;
+      queryParams.push(startDate);
+    }
+
+    if (endDate) {
+      queryText += ` AND timestamp <= $${queryParams.length + 1}`;
+      queryParams.push(endDate);
+    }
+
+    queryText += ` ORDER BY timestamp DESC LIMIT $${queryParams.length + 1}`;
+    queryParams.push(parseInt(limit));
+
+    const result = await query(queryText, queryParams);
+
+    const data = result.rows.map(row => ({
+      id: row.id,
+      timestamp: row.timestamp.toISOString(),
+      stressValue: row.stress_value,
+      recoveryValue: row.recovery_value,
+      heartRate: row.heart_rate,
+      hrv: row.hrv,
+      sleepEfficiency: row.sleep_efficiency,
+      sleepHeartRate: row.sleep_heart_rate,
+      skinTemperature: row.skin_temperature,
+      restlessPeriods: row.restless_periods,
+      additionalData: row.additional_data,
+      source: row.source,
+      createdAt: row.created_at.toISOString()
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        entries: data,
+        count: data.length
+      }
+    });
+  } catch (error) {
+    console.error('Get wearable data error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching wearable data'
+    });
+  }
+});
+
+// Get upload sessions (list of all uploads)
+app.get('/api/wearable/uploads', authenticate, async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT id, filename, file_size, source, total_rows, inserted_rows, updated_rows, 
+              skipped_rows, error_rows, status, created_at, updated_at
+       FROM upload_sessions
+       WHERE user_id = $1
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [req.userId]
+    );
+
+    const uploads = result.rows.map(row => ({
+      id: row.id,
+      filename: row.filename,
+      fileSize: parseInt(row.file_size),
+      source: row.source,
+      totalRows: parseInt(row.total_rows),
+      insertedRows: parseInt(row.inserted_rows),
+      updatedRows: parseInt(row.updated_rows),
+      skippedRows: parseInt(row.skipped_rows),
+      errorRows: parseInt(row.error_rows),
+      status: row.status,
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString()
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        uploads,
+        count: uploads.length
+      }
+    });
+  } catch (error) {
+    console.error('Get uploads error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching upload sessions'
+    });
+  }
+});
+
+// Get single upload session details
+app.get('/api/wearable/uploads/:id', authenticate, async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT id, filename, file_size, source, total_rows, inserted_rows, updated_rows,
+              skipped_rows, error_rows, field_mapping, unrecognized_fields, status,
+              created_at, updated_at
+       FROM upload_sessions
+       WHERE id = $1 AND user_id = $2`,
+      [req.params.id, req.userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Upload session not found'
+      });
+    }
+
+    const upload = result.rows[0];
+
+    res.json({
+      success: true,
+      data: {
+        id: upload.id,
+        filename: upload.filename,
+        fileSize: parseInt(upload.file_size),
+        source: upload.source,
+        totalRows: parseInt(upload.total_rows),
+        insertedRows: parseInt(upload.inserted_rows),
+        updatedRows: parseInt(upload.updated_rows),
+        skippedRows: parseInt(upload.skipped_rows),
+        errorRows: parseInt(upload.error_rows),
+        fieldMapping: upload.field_mapping,
+        unrecognizedFields: upload.unrecognized_fields || [],
+        status: upload.status,
+        createdAt: upload.created_at.toISOString(),
+        updatedAt: upload.updated_at.toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Get upload session error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching upload session'
+    });
+  }
+});
+
+// Delete upload session and associated data
+app.delete('/api/wearable/uploads/:id', authenticate, async (req, res) => {
+  try {
+    // First verify the upload session belongs to the user
+    const checkResult = await query(
+      'SELECT id FROM upload_sessions WHERE id = $1 AND user_id = $2',
+      [req.params.id, req.userId]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Upload session not found'
+      });
+    }
+
+    // Count records that will be deleted
+    const countResult = await query(
+      'SELECT COUNT(*) as count FROM wearable_data WHERE upload_session_id = $1',
+      [req.params.id]
+    );
+    const recordCount = parseInt(countResult.rows[0].count);
+
+    // Delete the upload session (cascade will delete associated wearable_data)
+    await query('DELETE FROM upload_sessions WHERE id = $1', [req.params.id]);
+
+    res.json({
+      success: true,
+      message: `Upload session and ${recordCount} associated data records deleted successfully`,
+      data: {
+        deletedRecords: recordCount
+      }
+    });
+  } catch (error) {
+    console.error('Delete upload session error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting upload session'
+    });
+  }
+});
+
+// Get wearable data statistics
+app.get('/api/wearable/statistics', authenticate, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    let queryText = `
+      SELECT 
+        COUNT(*) as total_records,
+        AVG(stress_value) as avg_stress,
+        AVG(recovery_value) as avg_recovery,
+        AVG(heart_rate) as avg_heart_rate,
+        AVG(hrv) as avg_hrv,
+        AVG(sleep_efficiency) as avg_sleep_efficiency,
+        AVG(sleep_heart_rate) as avg_sleep_heart_rate,
+        AVG(skin_temperature) as avg_skin_temperature,
+        MIN(timestamp) as earliest_date,
+        MAX(timestamp) as latest_date
+      FROM wearable_data
+      WHERE user_id = $1
+    `;
+    const queryParams = [req.userId];
+
+    if (startDate) {
+      queryText += ` AND timestamp >= $${queryParams.length + 1}`;
+      queryParams.push(startDate);
+    }
+
+    if (endDate) {
+      queryText += ` AND timestamp <= $${queryParams.length + 1}`;
+      queryParams.push(endDate);
+    }
+
+    const result = await query(queryText, queryParams);
+    const stats = result.rows[0];
+
+    res.json({
+      success: true,
+      data: {
+        totalRecords: parseInt(stats.total_records) || 0,
+        averages: {
+          stress: stats.avg_stress ? parseFloat(stats.avg_stress) : null,
+          recovery: stats.avg_recovery ? parseFloat(stats.avg_recovery) : null,
+          heartRate: stats.avg_heart_rate ? parseFloat(stats.avg_heart_rate) : null,
+          hrv: stats.avg_hrv ? parseFloat(stats.avg_hrv) : null,
+          sleepEfficiency: stats.avg_sleep_efficiency ? parseFloat(stats.avg_sleep_efficiency) : null,
+          sleepHeartRate: stats.avg_sleep_heart_rate ? parseFloat(stats.avg_sleep_heart_rate) : null,
+          skinTemperature: stats.avg_skin_temperature ? parseFloat(stats.avg_skin_temperature) : null
+        },
+        dateRange: {
+          earliest: stats.earliest_date ? stats.earliest_date.toISOString() : null,
+          latest: stats.latest_date ? stats.latest_date.toISOString() : null
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get wearable statistics error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching wearable statistics'
+    });
+  }
+});
+
+// ============================================
 // HEALTH CHECK
 // ============================================
 
@@ -1105,5 +1587,11 @@ app.listen(PORT, () => {
   console.log(`   DELETE /api/migraine/:id`);
   console.log(`   GET    /api/migraine/statistics`);
   console.log(`   GET    /api/migraine/recent`);
+  console.log(`   POST   /api/wearable/upload`);
+  console.log(`   GET    /api/wearable`);
+  console.log(`   GET    /api/wearable/statistics`);
+  console.log(`   GET    /api/wearable/uploads`);
+  console.log(`   GET    /api/wearable/uploads/:id`);
+  console.log(`   DELETE /api/wearable/uploads/:id`);
   console.log(`\n🔐 Demo user: demo@example.com / demo123`);
 });

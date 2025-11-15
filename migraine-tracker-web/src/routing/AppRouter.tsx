@@ -6,6 +6,7 @@ import MigraineListPage from '../features/migraine/MigraineListPage';
 import MigraineDetailPage from '../features/migraine/MigraineDetailPage';
 import MigraineFormPage from '../features/migraine/MigraineFormPage';
 import ProfilePage from '../features/profile/ProfilePage';
+import WearableUploadPage from '../features/wearable/WearableUploadPage';
 
 // ============================================
 // APP ROUTER
@@ -79,6 +80,15 @@ export const AppRouter = () => {
         element={
           <ProtectedRoute>
             <ProfilePage />
+          </ProtectedRoute>
+        }
+      />
+      
+      <Route
+        path="/wearable/upload"
+        element={
+          <ProtectedRoute>
+            <WearableUploadPage />
           </ProtectedRoute>
         }
       />

@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Upload, FileText, CheckCircle2, AlertCircle, X, Loader2, Clock, Trash2, History } from 'lucide-react';
-import { uploadWearableCSV, getUploadSessions, deleteUploadSession, type UploadResponse, type UploadSession } from '../../api/wearableService';
+import { uploadWearableCSV, getUploadSessions, deleteUploadSession, deleteAllUploadSessions, cleanupOrphanedData, type UploadResponse, type UploadSession } from '../../api/wearableService';
 import {
   Layout,
   Card,
@@ -26,6 +26,7 @@ export const WearableUploadPage = () => {
   const [processingPhase, setProcessingPhase] = useState(false);
   const uploadStartTime = useRef<number | null>(null);
   const progressInterval = useRef<NodeJS.Timeout | null>(null);
+  const processingInterval = useRef<NodeJS.Timeout | null>(null);
   const queryClient = useQueryClient();
 
   // Fetch upload history
@@ -37,6 +38,26 @@ export const WearableUploadPage = () => {
   // Delete upload mutation
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteUploadSession(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['upload-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['wearable-data'] });
+      queryClient.invalidateQueries({ queryKey: ['wearable-statistics'] });
+    },
+  });
+
+  // Delete all uploads mutation
+  const deleteAllMutation = useMutation({
+    mutationFn: () => deleteAllUploadSessions(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['upload-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['wearable-data'] });
+      queryClient.invalidateQueries({ queryKey: ['wearable-statistics'] });
+    },
+  });
+
+  // Cleanup orphaned data mutation
+  const cleanupMutation = useMutation({
+    mutationFn: () => cleanupOrphanedData(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['upload-sessions'] });
       queryClient.invalidateQueries({ queryKey: ['wearable-data'] });
@@ -67,11 +88,11 @@ export const WearableUploadPage = () => {
 
       return uploadWearableCSV(file, (progress) => {
         setActualUploadProgress(progress);
-        // Upload phase: 0-80%, Processing phase: 80-100%
+        // Upload phase: 0-20%, Processing phase: 20-100%
         // We track upload progress, then show processing
         if (progress < 100) {
-          // Scale upload progress to 0-80%
-          setUploadProgress(progress * 0.8);
+          // Scale upload progress to 0-20%
+          setUploadProgress(progress * 0.2);
           setProcessingPhase(false);
           
           // Calculate estimated time remaining for upload
@@ -86,17 +107,32 @@ export const WearableUploadPage = () => {
             setEstimatedTime(Math.ceil(uploadRemaining + processingTime));
           }
         } else {
-          // Upload complete, now processing
-          setUploadProgress(80);
+          // Upload complete, now processing (starts at 20%)
+          setUploadProgress(20);
           setProcessingPhase(true);
           // Estimate processing time based on file size
           const estimatedRows = Math.ceil(file.size / 100);
           const processingTime = estimatedRows * 0.01; // seconds
           setEstimatedTime(Math.ceil(processingTime));
+          
+          // Simulate processing progress (20% to 100%)
+          // This is an estimate since we don't have real-time processing updates
+          const processingStartTime = Date.now();
+          const simulateProcessing = () => {
+            const elapsed = (Date.now() - processingStartTime) / 1000;
+            const processingProgress = Math.min(100, 20 + (elapsed / processingTime) * 80);
+            setUploadProgress(processingProgress);
+            
+            if (processingProgress < 100) {
+              processingInterval.current = setTimeout(simulateProcessing, 100) as unknown as NodeJS.Timeout; // Update every 100ms
+            }
+          };
+          processingInterval.current = setTimeout(simulateProcessing, 100) as unknown as NodeJS.Timeout;
         }
       });
     },
     onSuccess: (response) => {
+      // Ensure progress shows 100% when complete
       setUploadProgress(100);
       setActualUploadProgress(100);
       setProcessingPhase(false);
@@ -106,6 +142,9 @@ export const WearableUploadPage = () => {
       }
       if (progressInterval.current) {
         clearInterval(progressInterval.current);
+      }
+      if (processingInterval.current) {
+        clearTimeout(processingInterval.current);
       }
       uploadStartTime.current = null;
       setEstimatedTime(null);
@@ -120,6 +159,9 @@ export const WearableUploadPage = () => {
       setProcessingPhase(false);
       if (progressInterval.current) {
         clearInterval(progressInterval.current);
+      }
+      if (processingInterval.current) {
+        clearTimeout(processingInterval.current);
       }
       uploadStartTime.current = null;
     },
@@ -178,6 +220,9 @@ export const WearableUploadPage = () => {
     setProcessingPhase(false);
     if (progressInterval.current) {
       clearInterval(progressInterval.current);
+    }
+    if (processingInterval.current) {
+      clearTimeout(processingInterval.current);
     }
     uploadStartTime.current = null;
   };
@@ -326,16 +371,17 @@ export const WearableUploadPage = () => {
                         Drag and drop your CSV file here
                       </p>
                       <p className="text-sm text-gray-500 mt-1">or</p>
-                      <label className="inline-block mt-2">
+                      <label htmlFor="csv-file-input" className="inline-block mt-2 cursor-pointer">
                         <input
                           type="file"
+                          id="csv-file-input"
                           accept=".csv"
                           onChange={handleFileChange}
                           className="hidden"
                         />
-                        <Button variant="outline" as="span">
+                        <span className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
                           Browse Files
-                        </Button>
+                        </span>
                       </label>
                     </div>
                     <p className="text-xs text-gray-400 mt-4">
@@ -506,13 +552,43 @@ export const WearableUploadPage = () => {
         {/* Upload History */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <History className="w-5 h-5" />
-              Upload History
-            </CardTitle>
-            <CardDescription>
-              View and manage your previous CSV uploads. You can delete uploads to remove all associated data.
-            </CardDescription>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+              <div className="flex-1">
+                <CardTitle className="flex items-center gap-2">
+                  <History className="w-5 h-5" />
+                  Upload History
+                </CardTitle>
+                <CardDescription>
+                  View and manage your previous CSV uploads. You can delete uploads to remove all associated data.
+                </CardDescription>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (window.confirm('Are you sure you want to cleanup orphaned data? This will delete all wearable data that was uploaded before the history feature existed (data without upload sessions).')) {
+                      cleanupMutation.mutate();
+                    }
+                  }}
+                  disabled={cleanupMutation.isPending}
+                >
+                  {cleanupMutation.isPending ? 'Cleaning...' : 'Cleanup Orphaned'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (window.confirm('Are you sure you want to delete ALL uploads? This will delete all upload sessions and their associated data. This action cannot be undone.')) {
+                      deleteAllMutation.mutate();
+                    }
+                  }}
+                  disabled={deleteAllMutation.isPending}
+                >
+                  {deleteAllMutation.isPending ? 'Deleting...' : 'Delete All'}
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <div className="p-6">
             {uploadsData?.data?.data?.uploads && uploadsData.data.data.uploads.length > 0 ? (

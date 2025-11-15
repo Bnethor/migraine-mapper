@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
   Calendar, 
@@ -8,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { migraineService } from '../../api/migraineService';
+import { processSummaryIndicators } from '../../api/summaryService';
 import { 
   Layout, 
   Card, 
@@ -35,6 +37,32 @@ import RecentEntries from './RecentEntries';
  */
 export const DashboardPage = () => {
   const navigate = useNavigate();
+
+  // Process summary indicators when entering dashboard
+  useEffect(() => {
+    let isMounted = true;
+    
+    const triggerProcessing = async () => {
+      try {
+        await processSummaryIndicators(false);
+      } catch (error) {
+        console.error('Error processing summary indicators:', error);
+        // Silently fail - don't interrupt user experience
+      }
+    };
+
+    // Trigger processing after a short delay to not block page load
+    const timeoutId = setTimeout(() => {
+      if (isMounted) {
+        triggerProcessing();
+      }
+    }, 1000);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+    };
+  }, []);
 
   // Fetch statistics
   const { 

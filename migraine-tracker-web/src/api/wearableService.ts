@@ -199,14 +199,46 @@ export const getUploadSessions = async (): Promise<ApiResponse<{ uploads: Upload
 /**
  * Get single upload session details
  */
-export const getUploadSession = async (id: string): Promise<ApiResponse<UploadSession & { fieldMapping?: Record<string, string>; unrecognizedFields?: string[] }>> => {
-  return api.get<UploadSession & { fieldMapping?: Record<string, string>; unrecognizedFields?: string[] }>(`/wearable/uploads/${id}`);
+export const getUploadSession = async (
+  id: string
+): Promise<
+  ApiResponse<UploadSession & { fieldMapping?: Record<string, string>; unrecognizedFields?: string[] }>
+> => {
+  return api.get<UploadSession & { fieldMapping?: Record<string, string>; unrecognizedFields?: string[] }>(
+    `/wearable/uploads/${id}`
+  );
 };
 
 /**
  * Delete upload session and associated data
  */
-export const deleteUploadSession = async (id: string): Promise<ApiResponse<{ deletedRecords: number }>> => {
+export const deleteUploadSession = async (
+  id: string
+): Promise<ApiResponse<{ deletedRecords: number }>> => {
   return api.delete<{ deletedRecords: number }>(`/wearable/uploads/${id}`);
+};
+
+/**
+ * Delete ALL upload sessions for the current user
+ * and all associated wearable data (cleanup)
+ */
+export const deleteAllUploadSessions = async (): Promise<
+  ApiResponse<{ message: string; data?: { deletedCount: number } }>
+> => {
+  return api.delete<{ message: string; data?: { deletedCount: number } }>(
+    '/wearable/uploads'
+  );
+};
+
+/**
+ * Cleanup orphaned wearable data (rows without upload_session_id)
+ * Typically data that was uploaded before upload history existed
+ */
+export const cleanupOrphanedData = async (): Promise<
+  ApiResponse<{ message: string; data?: { deletedCount: number } }>
+> => {
+  return api.post<{ message: string; data?: { deletedCount: number } }>(
+    '/wearable/cleanup-orphaned'
+  );
 };
 

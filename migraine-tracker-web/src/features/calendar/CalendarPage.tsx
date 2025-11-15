@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { getCalendarData, markMigraineDay, removeMigraineDay, type CalendarDay } from '../../api/calendarService';
+import { processSummaryIndicators } from '../../api/summaryService';
 import {
   Layout,
   Card,
@@ -23,6 +24,39 @@ export const CalendarPage = () => {
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth() + 1; // 1-12
+
+  // Process summary indicators when leaving the calendar page
+  useEffect(() => {
+    // Process on mount (when entering page)
+    let isMounted = true;
+    
+    const triggerProcessing = async () => {
+      try {
+        await processSummaryIndicators(false);
+      } catch (error) {
+        console.error('Error processing summary indicators:', error);
+        // Silently fail - don't interrupt user experience
+      }
+    };
+
+    // Trigger processing after a short delay to not block page load
+    const timeoutId = setTimeout(() => {
+      if (isMounted) {
+        triggerProcessing();
+      }
+    }, 1000);
+
+    // Cleanup: Process when component unmounts (user leaves page)
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+      
+      // Process on unmount (when leaving page)
+      processSummaryIndicators(false).catch(error => {
+        console.error('Error processing summary indicators on unmount:', error);
+      });
+    };
+  }, []);
 
   // Fetch calendar data
   const {

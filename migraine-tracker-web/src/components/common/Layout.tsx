@@ -11,7 +11,8 @@ import {
   X,
   User,
   Upload,
-  Calendar
+  Calendar,
+  TrendingUp
 } from 'lucide-react';
 import { useAuth } from '../../features/auth/AuthContext';
 import { Button } from './Button';
@@ -63,6 +64,11 @@ export const Layout = ({ children }: LayoutProps) => {
       path: '/calendar',
       label: 'Calendar',
       icon: Calendar,
+    },
+    {
+      path: '/patterns',
+      label: 'Patterns',
+      icon: TrendingUp,
     },
   ];
 

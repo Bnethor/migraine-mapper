@@ -8,6 +8,7 @@ import MigraineFormPage from '../features/migraine/MigraineFormPage';
 import ProfilePage from '../features/profile/ProfilePage';
 import WearableUploadPage from '../features/wearable/WearableUploadPage';
 import CalendarPage from '../features/calendar/CalendarPage';
+import PatternsPage from '../features/patterns/PatternsPage';
 
 // ============================================
 // APP ROUTER
@@ -99,6 +100,15 @@ export const AppRouter = () => {
         element={
           <ProtectedRoute>
             <CalendarPage />
+          </ProtectedRoute>
+        }
+      />
+      
+      <Route
+        path="/patterns"
+        element={
+          <ProtectedRoute>
+            <PatternsPage />
           </ProtectedRoute>
         }
       />

@@ -2507,6 +2507,7 @@ app.listen(PORT, () => {
   console.log(`   GET    /api/summary`);
   console.log(`   GET    /api/summary/correlations`);
   console.log(`   GET    /api/risk-prediction/data`);
+  console.log(`   POST   /api/risk-prediction/prompt (with simulated data)`);
   console.log(`   GET    /api/risk-prediction/prompt`);
   console.log(`\n🔐 Demo user: demo@example.com / demo123`);
 });

@@ -15,9 +15,13 @@ node_modules/
 .env.local
 .env.*.local
 
-# Database backups
-*.sql
-*.dump
+# Database backups and local files
+# NOTE: db/ schema files (init.sql, migration_*.sql) ARE tracked in git initially
+# After running setup-db.sh, they become locally ignored via git update-index
+backup*.sql
+dump*.sql
+*.backup
+*.bak
 
 # Editor directories and files
 .vscode/*

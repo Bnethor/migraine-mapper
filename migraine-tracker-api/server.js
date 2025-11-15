@@ -16,6 +16,17 @@ app.use(express.json());
 // HELPER FUNCTIONS
 // ============================================
 
+// Database field list for SELECT queries
+const MIGRAINE_FIELDS = `
+  id, user_id, start_time, end_time, intensity, location,
+  triggers, symptoms, medication, notes,
+  duration, frequency, pain_location, pain_character, pain_intensity,
+  nausea, vomit, phonophobia, photophobia, visual, sensory,
+  dysphasia, dysarthria, vertigo, tinnitus, hypoacusis, diplopia,
+  defect, ataxia, conscience, paresthesia, dpf, migraine_type,
+  created_at, updated_at
+`;
+
 // Transform database entry to API format
 const transformEntryForAPI = (dbEntry) => {
   if (!dbEntry) return null;
@@ -35,6 +46,30 @@ const transformEntryForAPI = (dbEntry) => {
     symptoms: dbEntry.symptoms ? dbEntry.symptoms.split(',').map(s => s.trim()).filter(Boolean) : [],
     medication: dbEntry.medication || undefined,
     notes: dbEntry.notes || undefined,
+    // Clinical assessment fields
+    duration: dbEntry.duration !== null ? dbEntry.duration : undefined,
+    frequency: dbEntry.frequency !== null ? dbEntry.frequency : undefined,
+    painLocation: dbEntry.pain_location !== null ? dbEntry.pain_location : undefined,
+    painCharacter: dbEntry.pain_character !== null ? dbEntry.pain_character : undefined,
+    painIntensity: dbEntry.pain_intensity !== null ? dbEntry.pain_intensity : undefined,
+    nausea: dbEntry.nausea !== null ? dbEntry.nausea : undefined,
+    vomit: dbEntry.vomit !== null ? dbEntry.vomit : undefined,
+    phonophobia: dbEntry.phonophobia !== null ? dbEntry.phonophobia : undefined,
+    photophobia: dbEntry.photophobia !== null ? dbEntry.photophobia : undefined,
+    visual: dbEntry.visual !== null ? dbEntry.visual : undefined,
+    sensory: dbEntry.sensory !== null ? dbEntry.sensory : undefined,
+    dysphasia: dbEntry.dysphasia !== null ? dbEntry.dysphasia : undefined,
+    dysarthria: dbEntry.dysarthria !== null ? dbEntry.dysarthria : undefined,
+    vertigo: dbEntry.vertigo !== null ? dbEntry.vertigo : undefined,
+    tinnitus: dbEntry.tinnitus !== null ? dbEntry.tinnitus : undefined,
+    hypoacusis: dbEntry.hypoacusis !== null ? dbEntry.hypoacusis : undefined,
+    diplopia: dbEntry.diplopia !== null ? dbEntry.diplopia : undefined,
+    defect: dbEntry.defect !== null ? dbEntry.defect : undefined,
+    ataxia: dbEntry.ataxia !== null ? dbEntry.ataxia : undefined,
+    conscience: dbEntry.conscience !== null ? dbEntry.conscience : undefined,
+    paresthesia: dbEntry.paresthesia !== null ? dbEntry.paresthesia : undefined,
+    dpf: dbEntry.dpf !== null ? dbEntry.dpf : undefined,
+    migraineType: dbEntry.migraine_type || undefined,
     createdAt: new Date(dbEntry.created_at).toISOString(),
     updatedAt: new Date(dbEntry.updated_at).toISOString()
   };
@@ -248,6 +283,216 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
 });
 
 // ============================================
+// USER PROFILE ROUTES
+// ============================================
+
+// Get user profile
+app.get('/api/profile', authenticate, async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT user_id, typical_duration, monthly_frequency,
+              typical_pain_location, typical_pain_character, typical_pain_intensity,
+              experiences_nausea, experiences_vomit, experiences_phonophobia, experiences_photophobia,
+              typical_visual_symptoms, typical_sensory_symptoms,
+              experiences_dysphasia, experiences_dysarthria, experiences_vertigo,
+              experiences_tinnitus, experiences_hypoacusis, experiences_diplopia,
+              experiences_defect, experiences_ataxia, experiences_conscience, experiences_paresthesia,
+              family_history, diagnosed_type, created_at, updated_at
+       FROM user_profiles
+       WHERE user_id = $1`,
+      [req.userId]
+    );
+
+    if (result.rows.length === 0) {
+      // No profile yet, return empty profile
+      return res.json({
+        success: true,
+        data: {
+          userId: req.userId
+        }
+      });
+    }
+
+    const profile = result.rows[0];
+
+    res.json({
+      success: true,
+      data: {
+        userId: profile.user_id,
+        typicalDuration: profile.typical_duration,
+        monthlyFrequency: profile.monthly_frequency,
+        typicalPainLocation: profile.typical_pain_location,
+        typicalPainCharacter: profile.typical_pain_character,
+        typicalPainIntensity: profile.typical_pain_intensity,
+        experiencesNausea: profile.experiences_nausea,
+        experiencesVomit: profile.experiences_vomit,
+        experiencesPhonophobia: profile.experiences_phonophobia,
+        experiencesPhotophobia: profile.experiences_photophobia,
+        typicalVisualSymptoms: profile.typical_visual_symptoms,
+        typicalSensorySymptoms: profile.typical_sensory_symptoms,
+        experiencesDysphasia: profile.experiences_dysphasia,
+        experiencesDysarthria: profile.experiences_dysarthria,
+        experiencesVertigo: profile.experiences_vertigo,
+        experiencesTinnitus: profile.experiences_tinnitus,
+        experiencesHypoacusis: profile.experiences_hypoacusis,
+        experiencesDiplopia: profile.experiences_diplopia,
+        experiencesDefect: profile.experiences_defect,
+        experiencesAtaxia: profile.experiences_ataxia,
+        experiencesConscience: profile.experiences_conscience,
+        experiencesParesthesia: profile.experiences_paresthesia,
+        familyHistory: profile.family_history,
+        diagnosedType: profile.diagnosed_type,
+        createdAt: profile.created_at,
+        updatedAt: profile.updated_at
+      }
+    });
+  } catch (error) {
+    console.error('Get profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching profile'
+    });
+  }
+});
+
+// Create or update user profile
+app.post('/api/profile', authenticate, async (req, res) => {
+  try {
+    const {
+      typicalDuration,
+      monthlyFrequency,
+      typicalPainLocation,
+      typicalPainCharacter,
+      typicalPainIntensity,
+      experiencesNausea,
+      experiencesVomit,
+      experiencesPhonophobia,
+      experiencesPhotophobia,
+      typicalVisualSymptoms,
+      typicalSensorySymptoms,
+      experiencesDysphasia,
+      experiencesDysarthria,
+      experiencesVertigo,
+      experiencesTinnitus,
+      experiencesHypoacusis,
+      experiencesDiplopia,
+      experiencesDefect,
+      experiencesAtaxia,
+      experiencesConscience,
+      experiencesParesthesia,
+      familyHistory,
+      diagnosedType
+    } = req.body;
+
+    // Upsert profile
+    const result = await query(
+      `INSERT INTO user_profiles (
+         user_id, typical_duration, monthly_frequency,
+         typical_pain_location, typical_pain_character, typical_pain_intensity,
+         experiences_nausea, experiences_vomit, experiences_phonophobia, experiences_photophobia,
+         typical_visual_symptoms, typical_sensory_symptoms,
+         experiences_dysphasia, experiences_dysarthria, experiences_vertigo,
+         experiences_tinnitus, experiences_hypoacusis, experiences_diplopia,
+         experiences_defect, experiences_ataxia, experiences_conscience, experiences_paresthesia,
+         family_history, diagnosed_type
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
+       ON CONFLICT (user_id) DO UPDATE SET
+         typical_duration = EXCLUDED.typical_duration,
+         monthly_frequency = EXCLUDED.monthly_frequency,
+         typical_pain_location = EXCLUDED.typical_pain_location,
+         typical_pain_character = EXCLUDED.typical_pain_character,
+         typical_pain_intensity = EXCLUDED.typical_pain_intensity,
+         experiences_nausea = EXCLUDED.experiences_nausea,
+         experiences_vomit = EXCLUDED.experiences_vomit,
+         experiences_phonophobia = EXCLUDED.experiences_phonophobia,
+         experiences_photophobia = EXCLUDED.experiences_photophobia,
+         typical_visual_symptoms = EXCLUDED.typical_visual_symptoms,
+         typical_sensory_symptoms = EXCLUDED.typical_sensory_symptoms,
+         experiences_dysphasia = EXCLUDED.experiences_dysphasia,
+         experiences_dysarthria = EXCLUDED.experiences_dysarthria,
+         experiences_vertigo = EXCLUDED.experiences_vertigo,
+         experiences_tinnitus = EXCLUDED.experiences_tinnitus,
+         experiences_hypoacusis = EXCLUDED.experiences_hypoacusis,
+         experiences_diplopia = EXCLUDED.experiences_diplopia,
+         experiences_defect = EXCLUDED.experiences_defect,
+         experiences_ataxia = EXCLUDED.experiences_ataxia,
+         experiences_conscience = EXCLUDED.experiences_conscience,
+         experiences_paresthesia = EXCLUDED.experiences_paresthesia,
+         family_history = EXCLUDED.family_history,
+         diagnosed_type = EXCLUDED.diagnosed_type,
+         updated_at = CURRENT_TIMESTAMP
+       RETURNING *`,
+      [
+        req.userId,
+        typicalDuration !== undefined ? typicalDuration : null,
+        monthlyFrequency !== undefined ? monthlyFrequency : null,
+        typicalPainLocation !== undefined ? typicalPainLocation : null,
+        typicalPainCharacter !== undefined ? typicalPainCharacter : null,
+        typicalPainIntensity !== undefined ? typicalPainIntensity : null,
+        experiencesNausea !== undefined ? experiencesNausea : null,
+        experiencesVomit !== undefined ? experiencesVomit : null,
+        experiencesPhonophobia !== undefined ? experiencesPhonophobia : null,
+        experiencesPhotophobia !== undefined ? experiencesPhotophobia : null,
+        typicalVisualSymptoms !== undefined ? typicalVisualSymptoms : null,
+        typicalSensorySymptoms !== undefined ? typicalSensorySymptoms : null,
+        experiencesDysphasia !== undefined ? experiencesDysphasia : null,
+        experiencesDysarthria !== undefined ? experiencesDysarthria : null,
+        experiencesVertigo !== undefined ? experiencesVertigo : null,
+        experiencesTinnitus !== undefined ? experiencesTinnitus : null,
+        experiencesHypoacusis !== undefined ? experiencesHypoacusis : null,
+        experiencesDiplopia !== undefined ? experiencesDiplopia : null,
+        experiencesDefect !== undefined ? experiencesDefect : null,
+        experiencesAtaxia !== undefined ? experiencesAtaxia : null,
+        experiencesConscience !== undefined ? experiencesConscience : null,
+        experiencesParesthesia !== undefined ? experiencesParesthesia : null,
+        familyHistory !== undefined ? familyHistory : null,
+        diagnosedType || null
+      ]
+    );
+
+    const profile = result.rows[0];
+
+    res.json({
+      success: true,
+      data: {
+        userId: profile.user_id,
+        typicalDuration: profile.typical_duration,
+        monthlyFrequency: profile.monthly_frequency,
+        typicalPainLocation: profile.typical_pain_location,
+        typicalPainCharacter: profile.typical_pain_character,
+        typicalPainIntensity: profile.typical_pain_intensity,
+        experiencesNausea: profile.experiences_nausea,
+        experiencesVomit: profile.experiences_vomit,
+        experiencesPhonophobia: profile.experiences_phonophobia,
+        experiencesPhotophobia: profile.experiences_photophobia,
+        typicalVisualSymptoms: profile.typical_visual_symptoms,
+        typicalSensorySymptoms: profile.typical_sensory_symptoms,
+        experiencesDysphasia: profile.experiences_dysphasia,
+        experiencesDysarthria: profile.experiences_dysarthria,
+        experiencesVertigo: profile.experiences_vertigo,
+        experiencesTinnitus: profile.experiences_tinnitus,
+        experiencesHypoacusis: profile.experiences_hypoacusis,
+        experiencesDiplopia: profile.experiences_diplopia,
+        experiencesDefect: profile.experiences_defect,
+        experiencesAtaxia: profile.experiences_ataxia,
+        experiencesConscience: profile.experiences_conscience,
+        experiencesParesthesia: profile.experiences_paresthesia,
+        familyHistory: profile.family_history,
+        diagnosedType: profile.diagnosed_type,
+        createdAt: profile.created_at,
+        updatedAt: profile.updated_at
+      }
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating profile'
+    });
+  }
+});
+
+// ============================================
 // MIGRAINE ROUTES
 // ============================================
 
@@ -343,8 +588,7 @@ app.get('/api/migraine/recent', authenticate, async (req, res) => {
     const limit = parseInt(req.query.limit) || 5;
 
     const result = await query(
-      `SELECT id, user_id, start_time, end_time, intensity, location,
-              triggers, symptoms, medication, notes, created_at, updated_at
+      `SELECT ${MIGRAINE_FIELDS}
        FROM migraine_entries
        WHERE user_id = $1
        ORDER BY start_time DESC
@@ -376,8 +620,7 @@ app.get('/api/migraine', authenticate, async (req, res) => {
     const offset = (pageNum - 1) * limitNum;
 
     let queryText = `
-      SELECT id, user_id, start_time, end_time, intensity, location,
-             triggers, symptoms, medication, notes, created_at, updated_at
+      SELECT ${MIGRAINE_FIELDS}
       FROM migraine_entries
       WHERE user_id = $1
     `;
@@ -433,8 +676,7 @@ app.get('/api/migraine', authenticate, async (req, res) => {
 app.get('/api/migraine/:id', authenticate, async (req, res) => {
   try {
     const result = await query(
-      `SELECT id, user_id, start_time, end_time, intensity, location,
-              triggers, symptoms, medication, notes, created_at, updated_at
+      `SELECT ${MIGRAINE_FIELDS}
        FROM migraine_entries
        WHERE id = $1`,
       [req.params.id]
@@ -482,7 +724,31 @@ app.post('/api/migraine', authenticate, async (req, res) => {
       triggers,
       symptoms,
       medication,
-      notes
+      notes,
+      // Clinical assessment fields
+      duration,
+      frequency,
+      painLocation,
+      painCharacter,
+      painIntensity,
+      nausea,
+      vomit,
+      phonophobia,
+      photophobia,
+      visual,
+      sensory,
+      dysphasia,
+      dysarthria,
+      vertigo,
+      tinnitus,
+      hypoacusis,
+      diplopia,
+      defect,
+      ataxia,
+      conscience,
+      paresthesia,
+      dpf,
+      migraineType
     } = req.body;
 
     // Validation
@@ -503,10 +769,13 @@ app.post('/api/migraine', authenticate, async (req, res) => {
 
     const result = await query(
       `INSERT INTO migraine_entries 
-       (user_id, start_time, end_time, intensity, location, triggers, symptoms, medication, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING id, user_id, start_time, end_time, intensity, location,
-                 triggers, symptoms, medication, notes, created_at, updated_at`,
+       (user_id, start_time, end_time, intensity, location, triggers, symptoms, medication, notes,
+        duration, frequency, pain_location, pain_character, pain_intensity,
+        nausea, vomit, phonophobia, photophobia, visual, sensory,
+        dysphasia, dysarthria, vertigo, tinnitus, hypoacusis, diplopia,
+        defect, ataxia, conscience, paresthesia, dpf, migraine_type)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32)
+       RETURNING ${MIGRAINE_FIELDS}`,
       [
         req.userId,
         startDateTime,
@@ -516,7 +785,30 @@ app.post('/api/migraine', authenticate, async (req, res) => {
         triggersStr,
         symptomsStr,
         medication || '',
-        notes || ''
+        notes || '',
+        duration !== undefined ? duration : null,
+        frequency !== undefined ? frequency : null,
+        painLocation !== undefined ? painLocation : null,
+        painCharacter !== undefined ? painCharacter : null,
+        painIntensity !== undefined ? painIntensity : null,
+        nausea !== undefined ? nausea : null,
+        vomit !== undefined ? vomit : null,
+        phonophobia !== undefined ? phonophobia : null,
+        photophobia !== undefined ? photophobia : null,
+        visual !== undefined ? visual : null,
+        sensory !== undefined ? sensory : null,
+        dysphasia !== undefined ? dysphasia : null,
+        dysarthria !== undefined ? dysarthria : null,
+        vertigo !== undefined ? vertigo : null,
+        tinnitus !== undefined ? tinnitus : null,
+        hypoacusis !== undefined ? hypoacusis : null,
+        diplopia !== undefined ? diplopia : null,
+        defect !== undefined ? defect : null,
+        ataxia !== undefined ? ataxia : null,
+        conscience !== undefined ? conscience : null,
+        paresthesia !== undefined ? paresthesia : null,
+        dpf !== undefined ? dpf : null,
+        migraineType || null
       ]
     );
 
@@ -567,7 +859,31 @@ app.put('/api/migraine/:id', authenticate, async (req, res) => {
       triggers,
       symptoms,
       medication,
-      notes
+      notes,
+      // Clinical fields
+      duration,
+      frequency,
+      painLocation,
+      painCharacter,
+      painIntensity,
+      nausea,
+      vomit,
+      phonophobia,
+      photophobia,
+      visual,
+      sensory,
+      dysphasia,
+      dysarthria,
+      vertigo,
+      tinnitus,
+      hypoacusis,
+      diplopia,
+      defect,
+      ataxia,
+      conscience,
+      paresthesia,
+      dpf,
+      migraineType
     } = req.body;
 
     // Prepare update values
@@ -594,10 +910,32 @@ app.put('/api/migraine/:id', authenticate, async (req, res) => {
            triggers = COALESCE($5, triggers),
            symptoms = COALESCE($6, symptoms),
            medication = COALESCE($7, medication),
-           notes = COALESCE($8, notes)
-       WHERE id = $9
-       RETURNING id, user_id, start_time, end_time, intensity, location,
-                 triggers, symptoms, medication, notes, created_at, updated_at`,
+           notes = COALESCE($8, notes),
+           duration = COALESCE($9, duration),
+           frequency = COALESCE($10, frequency),
+           pain_location = COALESCE($11, pain_location),
+           pain_character = COALESCE($12, pain_character),
+           pain_intensity = COALESCE($13, pain_intensity),
+           nausea = COALESCE($14, nausea),
+           vomit = COALESCE($15, vomit),
+           phonophobia = COALESCE($16, phonophobia),
+           photophobia = COALESCE($17, photophobia),
+           visual = COALESCE($18, visual),
+           sensory = COALESCE($19, sensory),
+           dysphasia = COALESCE($20, dysphasia),
+           dysarthria = COALESCE($21, dysarthria),
+           vertigo = COALESCE($22, vertigo),
+           tinnitus = COALESCE($23, tinnitus),
+           hypoacusis = COALESCE($24, hypoacusis),
+           diplopia = COALESCE($25, diplopia),
+           defect = COALESCE($26, defect),
+           ataxia = COALESCE($27, ataxia),
+           conscience = COALESCE($28, conscience),
+           paresthesia = COALESCE($29, paresthesia),
+           dpf = COALESCE($30, dpf),
+           migraine_type = COALESCE($31, migraine_type)
+       WHERE id = $32
+       RETURNING ${MIGRAINE_FIELDS}`,
       [
         startDateTime,
         endDateTime,
@@ -607,6 +945,29 @@ app.put('/api/migraine/:id', authenticate, async (req, res) => {
         symptomsStr,
         medication,
         notes,
+        duration !== undefined ? duration : null,
+        frequency !== undefined ? frequency : null,
+        painLocation !== undefined ? painLocation : null,
+        painCharacter !== undefined ? painCharacter : null,
+        painIntensity !== undefined ? painIntensity : null,
+        nausea !== undefined ? nausea : null,
+        vomit !== undefined ? vomit : null,
+        phonophobia !== undefined ? phonophobia : null,
+        photophobia !== undefined ? photophobia : null,
+        visual !== undefined ? visual : null,
+        sensory !== undefined ? sensory : null,
+        dysphasia !== undefined ? dysphasia : null,
+        dysarthria !== undefined ? dysarthria : null,
+        vertigo !== undefined ? vertigo : null,
+        tinnitus !== undefined ? tinnitus : null,
+        hypoacusis !== undefined ? hypoacusis : null,
+        diplopia !== undefined ? diplopia : null,
+        defect !== undefined ? defect : null,
+        ataxia !== undefined ? ataxia : null,
+        conscience !== undefined ? conscience : null,
+        paresthesia !== undefined ? paresthesia : null,
+        dpf !== undefined ? dpf : null,
+        migraineType || null,
         req.params.id
       ]
     );

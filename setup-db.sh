@@ -113,6 +113,15 @@ else
     echo -e "${YELLOW}⚠️  API server test skipped${NC}"
 fi
 
+# Mark database files as locally modified (ignore future changes)
+echo -e "${YELLOW}🔧 Configuring git to ignore local database file changes...${NC}"
+cd migraine-tracker-api
+git update-index --assume-unchanged db/init.sql 2>/dev/null || true
+git update-index --assume-unchanged db/migration_001_add_clinical_fields.sql 2>/dev/null || true
+git update-index --assume-unchanged db/migration_002_user_profile.sql 2>/dev/null || true
+cd ..
+echo -e "${GREEN}✅ Database files marked as locally ignored${NC}"
+
 echo ""
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}🎉 Setup completed successfully!${NC}"
@@ -142,6 +151,11 @@ echo "   Health check:           curl http://localhost:3000/api/health"
 echo ""
 echo -e "${BLUE}📚 Documentation:${NC}"
 echo "   See DOCKER_SETUP.md for more information"
+echo ""
+echo -e "${BLUE}ℹ️  Note:${NC}"
+echo "   Database schema files are now marked as 'locally ignored'"
+echo "   Your local changes to db/*.sql won't be tracked by git"
+echo "   To re-enable tracking: git update-index --no-assume-unchanged db/init.sql"
 echo ""
 
 

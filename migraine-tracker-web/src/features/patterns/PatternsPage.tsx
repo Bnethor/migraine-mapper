@@ -179,18 +179,20 @@ export const PatternsPage = () => {
             </Card>
             <Card>
               <div className="p-4">
-                <p className="text-sm text-gray-600">High Confidence Patterns</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {patterns.filter(p => (p.confidenceScore || 0) > 0.7).length}
+                <p className="text-sm text-gray-600">Strong Correlations</p>
+                <p className="text-2xl font-bold text-orange-600">
+                  {patterns.filter(p => Math.abs(p.correlationStrength || 0) > 0.3).length}
                 </p>
+                <p className="text-xs text-gray-500 mt-1">Effect size &gt; 0.3</p>
               </div>
             </Card>
             <Card>
               <div className="p-4">
-                <p className="text-sm text-gray-600">Strong Correlations</p>
-                <p className="text-2xl font-bold text-red-600">
-                  {patterns.filter(p => Math.abs(p.correlationStrength || 0) > 0.5).length}
+                <p className="text-sm text-gray-600">Migraine Days Analyzed</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {patterns.length > 0 ? patterns[0].migraineDaysCount : 0}
                 </p>
+                <p className="text-xs text-gray-500 mt-1">of {patterns.length > 0 ? patterns[0].totalDaysAnalyzed : 0} total days</p>
               </div>
             </Card>
           </div>
@@ -233,45 +235,34 @@ export const PatternsPage = () => {
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <CardTitle className="flex items-center gap-2">
+                      <CardTitle className="flex items-center gap-3">
                         {pattern.patternName}
                         {pattern.correlationStrength !== null && (
                           <span
-                            className={`text-sm font-normal ${getCorrelationColor(
+                            className={`text-base font-semibold ${getCorrelationColor(
                               pattern.correlationStrength
                             )}`}
                           >
                             {pattern.correlationStrength > 0 ? (
-                              <TrendingUp className="w-4 h-4 inline mr-1" />
+                              <TrendingUp className="w-5 h-5 inline mr-1" />
                             ) : (
-                              <TrendingDown className="w-4 h-4 inline mr-1" />
+                              <TrendingDown className="w-5 h-5 inline mr-1" />
                             )}
                             {formatCorrelation(pattern.correlationStrength)}
                           </span>
                         )}
                       </CardTitle>
-                      <CardDescription className="mt-2">
-                        Pattern Type: <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">
-                          {pattern.patternType}
-                        </code>
+                      <CardDescription className="mt-2 flex items-center gap-3">
+                        <span>
+                          Pattern Type: <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">
+                            {pattern.patternType}
+                          </code>
+                        </span>
+                        <span className="text-gray-500">
+                          • Based on {pattern.migraineDaysCount} migraine day{pattern.migraineDaysCount !== 1 ? 's' : ''}
+                        </span>
                       </CardDescription>
                     </div>
-                    {pattern.confidenceScore !== null && (
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`text-sm font-medium ${getConfidenceColor(
-                            pattern.confidenceScore
-                          )}`}
-                        >
-                          {pattern.confidenceScore > 0.7 ? (
-                            <CheckCircle2 className="w-4 h-4 inline mr-1" />
-                          ) : (
-                            <AlertTriangle className="w-4 h-4 inline mr-1" />
-                          )}
-                          {(pattern.confidenceScore * 100).toFixed(0)}% confidence
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </CardHeader>
 
@@ -325,9 +316,9 @@ export const PatternsPage = () => {
 
                   {/* Correlation Details */}
                   <div className="border-t pt-4">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="flex items-center justify-between text-sm">
                       <div>
-                        <span className="text-gray-600">Correlation Strength:</span>
+                        <span className="text-gray-600">Correlation Strength (Effect Size):</span>
                         <span
                           className={`ml-2 font-semibold ${getCorrelationColor(
                             pattern.correlationStrength
@@ -337,23 +328,11 @@ export const PatternsPage = () => {
                             ? pattern.correlationStrength.toFixed(3)
                             : 'N/A'}
                         </span>
-                        {pattern.correlationStrength !== null && (
-                          <span className="text-xs text-gray-500 ml-2">
-                            ({formatCorrelation(pattern.correlationStrength)})
-                          </span>
-                        )}
                       </div>
-                      <div>
-                        <span className="text-gray-600">Confidence Score:</span>
-                        <span
-                          className={`ml-2 font-semibold ${getConfidenceColor(
-                            pattern.confidenceScore
-                          )}`}
-                        >
-                          {pattern.confidenceScore !== null
-                            ? pattern.confidenceScore.toFixed(3)
-                            : 'N/A'}
-                        </span>
+                      <div className="text-xs text-gray-500">
+                        {Math.abs(pattern.correlationStrength || 0) < 0.2 && 'Small effect'}
+                        {Math.abs(pattern.correlationStrength || 0) >= 0.2 && Math.abs(pattern.correlationStrength || 0) < 0.5 && 'Medium effect'}
+                        {Math.abs(pattern.correlationStrength || 0) >= 0.5 && 'Large effect'}
                       </div>
                     </div>
                   </div>
@@ -375,27 +354,30 @@ export const PatternsPage = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Info className="w-5 h-5" />
-              How Patterns Work
+              Understanding Pattern Metrics
             </CardTitle>
           </CardHeader>
           <div className="p-6 space-y-3 text-sm text-gray-600">
             <p>
-              <strong>Correlation Strength</strong> indicates how strongly a pattern correlates with
-              migraine days. Positive values mean higher values are associated with migraines,
-              negative values mean lower values are associated.
+              <strong>Correlation Strength (Effect Size)</strong> measures how different your metrics are
+              on migraine days vs normal days. This is calculated using Cohen's d:
+            </p>
+            <ul className="ml-6 space-y-1 list-disc">
+              <li><strong>Small effect (&lt; 0.2):</strong> Subtle difference, may not be clinically significant</li>
+              <li><strong>Medium effect (0.2 - 0.5):</strong> Noticeable difference, likely meaningful</li>
+              <li><strong>Large effect (&gt; 0.5):</strong> Strong difference, highly significant</li>
+            </ul>
+            <p className="mt-3">
+              <strong>Sample Size</strong> shows how many migraine days were analyzed. More migraine days
+              generally lead to more reliable patterns, but the effect size matters more than quantity.
             </p>
             <p>
-              <strong>Confidence Score</strong> reflects how reliable the pattern is based on the
-              amount of data analyzed. Higher confidence means more data was used to identify the
-              pattern.
+              <strong>Threshold Values</strong> are calculated based on your personal data. When a metric
+              crosses this threshold, it suggests increased migraine risk.
             </p>
-            <p>
-              <strong>Threshold Value</strong> is the value that, when exceeded (or not met), indicates
-              increased risk based on your personal data patterns.
-            </p>
-            <p>
-              These patterns are automatically updated when you visit the dashboard or calendar page,
-              and are used to help predict your 12-hour migraine risk.
+            <p className="pt-2 border-t">
+              <em>Note:</em> These patterns are automatically updated when you visit the dashboard or calendar,
+              and will be used to help predict your personalized migraine risk.
             </p>
           </div>
         </Card>

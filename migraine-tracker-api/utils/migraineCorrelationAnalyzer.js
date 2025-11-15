@@ -129,7 +129,49 @@ export const analyzeMigraineCorrelations = async (userId) => {
     
     console.log(`Correlation analysis: diff=${diff.toFixed(2)}, pooledStd=${pooledStd.toFixed(2)}, cohensD=${cohensD.toFixed(3)}, correlation=${correlation.toFixed(3)}`);
     
-    return correlation;
+    return { correlation, cohensD, pooledStd, migraineVariance, normalVariance };
+  };
+  
+  // Helper function to calculate confidence score based on statistical principles
+  const calculateConfidence = (migraineCount, normalCount, cohensD, migraineVariance, normalVariance) => {
+    // Factors that affect confidence:
+    // 1. Sample size (especially migraine days - need at least 5-10 for reasonable confidence)
+    // 2. Effect size (larger effect = higher confidence)
+    // 3. Variance (higher variance = lower confidence)
+    // 4. Balance between groups
+    
+    // Minimum migraine days needed for confidence
+    if (migraineCount < 3) return 0.1; // Very low confidence with < 3 migraine days
+    
+    // Sample size factor (0 to 1)
+    // Need at least 10 migraine days for high confidence, cap at 30
+    const sampleSizeFactor = Math.min(1, (migraineCount - 2) / 28); // 3->0.036, 10->0.286, 30->1.0
+    
+    // Effect size factor (0 to 1)
+    // Larger Cohen's d = higher confidence
+    const effectSizeFactor = Math.min(1, Math.abs(cohensD) / 1.5); // 0.3->0.2, 0.8->0.53, 1.5->1.0
+    
+    // Variance factor (0 to 1)
+    // Lower variance = higher confidence
+    const avgVariance = (migraineVariance + normalVariance) / 2;
+    const varianceFactor = 1 / (1 + avgVariance / 100); // Lower variance = higher factor
+    
+    // Balance factor (0 to 1)
+    // Too few normal days compared to migraine days reduces confidence
+    const balanceRatio = Math.min(normalCount, migraineCount * 10) / (migraineCount * 10);
+    const balanceFactor = Math.sqrt(balanceRatio); // Square root for less penalty
+    
+    // Combine factors (weighted average)
+    const confidence = (
+      sampleSizeFactor * 0.35 +      // Sample size most important
+      effectSizeFactor * 0.30 +      // Effect size very important
+      varianceFactor * 0.20 +        // Variance moderately important
+      balanceFactor * 0.15           // Balance less important
+    );
+    
+    console.log(`Confidence: samples=${migraineCount}/${normalCount}, effect=${cohensD.toFixed(3)}, variance=${avgVariance.toFixed(2)}, factors=[${sampleSizeFactor.toFixed(2)},${effectSizeFactor.toFixed(2)},${varianceFactor.toFixed(2)},${balanceFactor.toFixed(2)}] => ${confidence.toFixed(3)}`);
+    
+    return Math.max(0.1, Math.min(0.95, confidence)); // Cap at 95% max confidence
   };
 
   // Analyze patterns
@@ -142,11 +184,19 @@ export const analyzeMigraineCorrelations = async (userId) => {
     const migraineAvg = avg(migraineDayData, 'avgStress');
     const normalAvg = avg(normalDayData, 'avgStress');
     console.log(`Analyzing stress: migraine avg=${migraineAvg?.toFixed(2)}, normal avg=${normalAvg?.toFixed(2)}`);
-    const correlation = calculateCorrelation(migraineStress, normalStress);
+    const result = calculateCorrelation(migraineStress, normalStress);
     
-    // Lowered threshold from 0.2 to 0.05 for more sensitivity
-    if (correlation !== null && Math.abs(correlation) > 0.05) {
-      const threshold = normalAvg + (migraineAvg - normalAvg) * 0.7; // 70% of the way to migraine avg
+    // Use 0.1 threshold (moderate sensitivity)
+    if (result && Math.abs(result.correlation) > 0.1) {
+      const confidence = calculateConfidence(
+        migraineStress.length,
+        normalStress.length,
+        result.cohensD,
+        result.migraineVariance,
+        result.normalVariance
+      );
+      
+      const threshold = normalAvg + (migraineAvg - normalAvg) * 0.7;
       patterns.push({
         patternType: 'high_stress',
         patternName: 'High Average Stress',
@@ -155,8 +205,8 @@ export const analyzeMigraineCorrelations = async (userId) => {
           operator: '>',
           threshold: threshold
         },
-        correlationStrength: correlation,
-        confidenceScore: Math.min(1, (migraineStress.length + normalStress.length) / 20), // More data = higher confidence
+        correlationStrength: result.correlation,
+        confidenceScore: confidence,
         migraineDaysCount: migraineStress.length,
         totalDaysAnalyzed: migraineStress.length + normalStress.length,
         avgValueOnMigraineDays: migraineAvg,
@@ -172,20 +222,17 @@ export const analyzeMigraineCorrelations = async (userId) => {
   if (migraineMaxStress.length > 0 && normalMaxStress.length > 0) {
     const migraineAvg = avg(migraineDayData, 'maxStress');
     const normalAvg = avg(normalDayData, 'maxStress');
-    const correlation = calculateCorrelation(migraineMaxStress, normalMaxStress);
+    const result = calculateCorrelation(migraineMaxStress, normalMaxStress);
     
-    if (correlation !== null && Math.abs(correlation) > 0.05) {
+    if (result && Math.abs(result.correlation) > 0.1) {
+      const confidence = calculateConfidence(migraineMaxStress.length, normalMaxStress.length, result.cohensD, result.migraineVariance, result.normalVariance);
       const threshold = normalAvg + (migraineAvg - normalAvg) * 0.7;
       patterns.push({
         patternType: 'stress_spike',
         patternName: 'Stress Spikes',
-        patternDefinition: {
-          metric: 'max_stress',
-          operator: '>',
-          threshold: threshold
-        },
-        correlationStrength: correlation,
-        confidenceScore: Math.min(1, (migraineMaxStress.length + normalMaxStress.length) / 20),
+        patternDefinition: { metric: 'max_stress', operator: '>', threshold: threshold },
+        correlationStrength: result.correlation,
+        confidenceScore: confidence,
         migraineDaysCount: migraineMaxStress.length,
         totalDaysAnalyzed: migraineMaxStress.length + normalMaxStress.length,
         avgValueOnMigraineDays: migraineAvg,
@@ -201,20 +248,17 @@ export const analyzeMigraineCorrelations = async (userId) => {
   if (migraineRecovery.length > 0 && normalRecovery.length > 0) {
     const migraineAvg = avg(migraineDayData, 'avgRecovery');
     const normalAvg = avg(normalDayData, 'avgRecovery');
-    const correlation = calculateCorrelation(migraineRecovery, normalRecovery);
+    const result = calculateCorrelation(migraineRecovery, normalRecovery);
     
-    if (correlation !== null && correlation < -0.05) { // Negative correlation (lower recovery = more migraines)
+    if (result && result.correlation < -0.1) {
+      const confidence = calculateConfidence(migraineRecovery.length, normalRecovery.length, result.cohensD, result.migraineVariance, result.normalVariance);
       const threshold = normalAvg - (normalAvg - migraineAvg) * 0.7;
       patterns.push({
         patternType: 'low_recovery',
         patternName: 'Low Recovery',
-        patternDefinition: {
-          metric: 'avg_recovery',
-          operator: '<',
-          threshold: threshold
-        },
-        correlationStrength: correlation,
-        confidenceScore: Math.min(1, (migraineRecovery.length + normalRecovery.length) / 20),
+        patternDefinition: { metric: 'avg_recovery', operator: '<', threshold: threshold },
+        correlationStrength: result.correlation,
+        confidenceScore: confidence,
         migraineDaysCount: migraineRecovery.length,
         totalDaysAnalyzed: migraineRecovery.length + normalRecovery.length,
         avgValueOnMigraineDays: migraineAvg,
@@ -230,20 +274,17 @@ export const analyzeMigraineCorrelations = async (userId) => {
   if (migraineHrv.length > 0 && normalHrv.length > 0) {
     const migraineAvg = avg(migraineDayData, 'avgHrv');
     const normalAvg = avg(normalDayData, 'avgHrv');
-    const correlation = calculateCorrelation(migraineHrv, normalHrv);
+    const result = calculateCorrelation(migraineHrv, normalHrv);
     
-    if (correlation !== null && correlation < -0.05) {
+    if (result && result.correlation < -0.1) {
+      const confidence = calculateConfidence(migraineHrv.length, normalHrv.length, result.cohensD, result.migraineVariance, result.normalVariance);
       const threshold = normalAvg - (normalAvg - migraineAvg) * 0.7;
       patterns.push({
         patternType: 'low_hrv',
         patternName: 'Low Heart Rate Variability',
-        patternDefinition: {
-          metric: 'avg_hrv',
-          operator: '<',
-          threshold: threshold
-        },
-        correlationStrength: correlation,
-        confidenceScore: Math.min(1, (migraineHrv.length + normalHrv.length) / 20),
+        patternDefinition: { metric: 'avg_hrv', operator: '<', threshold: threshold },
+        correlationStrength: result.correlation,
+        confidenceScore: confidence,
         migraineDaysCount: migraineHrv.length,
         totalDaysAnalyzed: migraineHrv.length + normalHrv.length,
         avgValueOnMigraineDays: migraineAvg,
@@ -259,20 +300,17 @@ export const analyzeMigraineCorrelations = async (userId) => {
   if (migraineSleep.length > 0 && normalSleep.length > 0) {
     const migraineAvg = avg(migraineDayData, 'avgSleepEfficiency');
     const normalAvg = avg(normalDayData, 'avgSleepEfficiency');
-    const correlation = calculateCorrelation(migraineSleep, normalSleep);
+    const result = calculateCorrelation(migraineSleep, normalSleep);
     
-    if (correlation !== null && correlation < -0.05) {
+    if (result && result.correlation < -0.1) {
+      const confidence = calculateConfidence(migraineSleep.length, normalSleep.length, result.cohensD, result.migraineVariance, result.normalVariance);
       const threshold = normalAvg - (normalAvg - migraineAvg) * 0.7;
       patterns.push({
         patternType: 'poor_sleep',
         patternName: 'Poor Sleep Efficiency',
-        patternDefinition: {
-          metric: 'avg_sleep_efficiency',
-          operator: '<',
-          threshold: threshold
-        },
-        correlationStrength: correlation,
-        confidenceScore: Math.min(1, (migraineSleep.length + normalSleep.length) / 20),
+        patternDefinition: { metric: 'avg_sleep_efficiency', operator: '<', threshold: threshold },
+        correlationStrength: result.correlation,
+        confidenceScore: confidence,
         migraineDaysCount: migraineSleep.length,
         totalDaysAnalyzed: migraineSleep.length + normalSleep.length,
         avgValueOnMigraineDays: migraineAvg,
@@ -288,20 +326,17 @@ export const analyzeMigraineCorrelations = async (userId) => {
   if (migraineStressVol.length > 0 && normalStressVol.length > 0) {
     const migraineAvg = avg(migraineDayData, 'stressVolatility');
     const normalAvg = avg(normalDayData, 'stressVolatility');
-    const correlation = calculateCorrelation(migraineStressVol, normalStressVol);
+    const result = calculateCorrelation(migraineStressVol, normalStressVol);
     
-    if (correlation !== null && correlation > 0.05) {
+    if (result && result.correlation > 0.1) {
+      const confidence = calculateConfidence(migraineStressVol.length, normalStressVol.length, result.cohensD, result.migraineVariance, result.normalVariance);
       const threshold = normalAvg + (migraineAvg - normalAvg) * 0.7;
       patterns.push({
         patternType: 'stress_volatility',
         patternName: 'High Stress Volatility',
-        patternDefinition: {
-          metric: 'stress_volatility',
-          operator: '>',
-          threshold: threshold
-        },
-        correlationStrength: correlation,
-        confidenceScore: Math.min(1, (migraineStressVol.length + normalStressVol.length) / 20),
+        patternDefinition: { metric: 'stress_volatility', operator: '>', threshold: threshold },
+        correlationStrength: result.correlation,
+        confidenceScore: confidence,
         migraineDaysCount: migraineStressVol.length,
         totalDaysAnalyzed: migraineStressVol.length + normalStressVol.length,
         avgValueOnMigraineDays: migraineAvg,

@@ -10,7 +10,8 @@ import {
   Menu, 
   X,
   User,
-  Upload
+  Upload,
+  Calendar
 } from 'lucide-react';
 import { useAuth } from '../../features/auth/AuthContext';
 import { Button } from './Button';
@@ -57,6 +58,11 @@ export const Layout = ({ children }: LayoutProps) => {
       path: '/wearable/upload',
       label: 'Upload Data',
       icon: Upload,
+    },
+    {
+      path: '/calendar',
+      label: 'Calendar',
+      icon: Calendar,
     },
   ];
 

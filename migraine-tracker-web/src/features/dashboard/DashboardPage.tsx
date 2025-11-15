@@ -13,7 +13,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { migraineService } from '../../api/migraineService';
 import { processSummaryIndicators } from '../../api/summaryService';
-import { getRiskAnalysisPrompt } from '../../api/riskAnalysisService';
+import { getRiskAnalysisPrompt, callAIAgent, type AIAnalysisResponse } from '../../api/riskAnalysisService';
 import { 
   Layout, 
   Card, 
@@ -44,6 +44,7 @@ export const DashboardPage = () => {
   const [showPrompt, setShowPrompt] = useState(false);
   const [promptData, setPromptData] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
   
   // Simulated data for testing
   const [useSimulatedData, setUseSimulatedData] = useState(true);
@@ -63,14 +64,33 @@ export const DashboardPage = () => {
       return getRiskAnalysisPrompt(dataToSend);
     },
     onSuccess: (response) => {
-      if (response.data) {
-        setPromptData(response.data.prompt);
+      console.log('Prompt generation response:', response);
+      // Backend returns {success: true, data: {prompt, summary, metadata}}
+      // apiClient wraps it as {data: backendResponse, success: true}
+      // So we need response.data.data.prompt
+      if (response?.data?.data?.prompt) {
+        setPromptData(response.data.data.prompt);
         setShowPrompt(true);
+      } else {
+        console.error('Unexpected response structure:', response);
+        alert('Received unexpected response from server');
       }
     },
     onError: (error: any) => {
       console.error('Error generating prompt:', error);
-      alert(error.response?.data?.message || 'Failed to generate risk analysis prompt');
+      alert(error.message || 'Failed to generate risk analysis prompt');
+    }
+  });
+
+  // Call AI agent mutation
+  const callAIMutation = useMutation({
+    mutationFn: (prompt: string) => callAIAgent(prompt),
+    onSuccess: (analysis) => {
+      setAiAnalysis(analysis);
+    },
+    onError: (error: any) => {
+      console.error('Error calling AI agent:', error);
+      alert('Failed to get AI analysis. Please try again.');
     }
   });
 
@@ -80,6 +100,13 @@ export const DashboardPage = () => {
       navigator.clipboard.writeText(promptData);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  // Get AI analysis
+  const handleGetAIAnalysis = () => {
+    if (promptData) {
+      callAIMutation.mutate(promptData);
     }
   };
 
@@ -474,14 +501,25 @@ export const DashboardPage = () => {
                 {generatePromptMutation.isPending ? 'Generating...' : 'Generate Risk Analysis Prompt'}
               </Button>
               {promptData && (
-                <Button
-                  variant="secondary"
-                  leftIcon={copied ? <CheckCircle2 size={20} /> : <Copy size={20} />}
-                  onClick={handleCopyPrompt}
-                  className="flex-1 sm:flex-initial"
-                >
-                  {copied ? 'Copied!' : 'Copy to Clipboard'}
-                </Button>
+                <>
+                  <Button
+                    variant="secondary"
+                    leftIcon={copied ? <CheckCircle2 size={20} /> : <Copy size={20} />}
+                    onClick={handleCopyPrompt}
+                    className="flex-1 sm:flex-initial"
+                  >
+                    {copied ? 'Copied!' : 'Copy to Clipboard'}
+                  </Button>
+                  <Button
+                    variant="primary"
+                    leftIcon={<Brain size={20} />}
+                    onClick={handleGetAIAnalysis}
+                    disabled={callAIMutation.isPending}
+                    className="flex-1 sm:flex-initial bg-gradient-to-r from-purple-600 to-blue-600"
+                  >
+                    {callAIMutation.isPending ? 'Analyzing...' : 'Get AI Analysis'}
+                  </Button>
+                </>
               )}
             </div>
 
@@ -517,6 +555,109 @@ export const DashboardPage = () => {
                   <li>Marked migraine days in the calendar</li>
                   <li>Completed your user profile</li>
                 </ul>
+              </div>
+            )}
+
+            {/* AI Analysis Results */}
+            {aiAnalysis && (
+              <div className="mt-6 space-y-6 border-t-2 border-purple-200 pt-6">
+                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <Brain className="text-purple-600" size={24} />
+                  AI Risk Analysis Results
+                </h3>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Circular Risk Indicator */}
+                  <div className="lg:col-span-1 flex flex-col items-center justify-center bg-white rounded-lg p-6 border-2 border-gray-200">
+                    <div className="relative w-48 h-48">
+                      {/* Circular Progress */}
+                      <svg className="w-48 h-48 transform -rotate-90">
+                        <circle
+                          cx="96"
+                          cy="96"
+                          r="88"
+                          stroke="#E5E7EB"
+                          strokeWidth="16"
+                          fill="none"
+                        />
+                        <circle
+                          cx="96"
+                          cy="96"
+                          r="88"
+                          stroke={
+                            aiAnalysis.riskLevel >= 75 ? '#DC2626' :
+                            aiAnalysis.riskLevel >= 50 ? '#EA580C' :
+                            aiAnalysis.riskLevel >= 25 ? '#F59E0B' :
+                            '#10B981'
+                          }
+                          strokeWidth="16"
+                          fill="none"
+                          strokeDasharray={`${aiAnalysis.riskLevel * 5.53} 553`}
+                          strokeLinecap="round"
+                          className="transition-all duration-1000 ease-out"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-5xl font-bold text-gray-900">{aiAnalysis.riskLevel}%</span>
+                        <span className="text-sm font-medium text-gray-600 mt-2">{aiAnalysis.riskCategory} Risk</span>
+                      </div>
+                    </div>
+                    <div className="mt-4 text-center">
+                      <p className="text-xs text-gray-500">Confidence: <span className="font-semibold">{aiAnalysis.confidenceLevel}</span></p>
+                    </div>
+                  </div>
+
+                  {/* Analysis Details */}
+                  <div className="lg:col-span-2 space-y-4">
+                    {/* Key Risk Factors */}
+                    {aiAnalysis.keyRiskFactors.length > 0 && (
+                      <div className="bg-white rounded-lg p-4 border-2 border-orange-200">
+                        <h4 className="text-sm font-bold text-gray-900 mb-3">🚨 Key Risk Factors</h4>
+                        <ul className="space-y-2">
+                          {aiAnalysis.keyRiskFactors.map((factor, idx) => (
+                            <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+                              <span className="text-orange-600 mt-0.5">•</span>
+                              <span>{factor}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Recommendations */}
+                    {aiAnalysis.recommendations.length > 0 && (
+                      <div className="bg-white rounded-lg p-4 border-2 border-green-200">
+                        <h4 className="text-sm font-bold text-gray-900 mb-3">💡 Recommendations</h4>
+                        <ul className="space-y-2">
+                          {aiAnalysis.recommendations.map((rec, idx) => (
+                            <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+                              <span className="text-green-600 mt-0.5">•</span>
+                              <span>{rec}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Trend Analysis */}
+                    {aiAnalysis.trendAnalysis && (
+                      <div className="bg-white rounded-lg p-4 border-2 border-blue-200">
+                        <h4 className="text-sm font-bold text-gray-900 mb-2">📊 Trend Analysis</h4>
+                        <p className="text-sm text-gray-700">{aiAnalysis.trendAnalysis}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Full Analysis Text */}
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <h4 className="text-sm font-bold text-gray-900 mb-3">📄 Complete AI Analysis</h4>
+                  <div className="bg-white rounded p-4 max-h-96 overflow-y-auto">
+                    <pre className="text-sm text-gray-800 whitespace-pre-wrap font-sans">
+                      {aiAnalysis.fullAnalysis}
+                    </pre>
+                  </div>
+                </div>
               </div>
             )}
           </div>

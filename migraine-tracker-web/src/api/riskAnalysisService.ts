@@ -140,20 +140,32 @@ export const callAIAgent = async (prompt: string): Promise<AIAnalysisResponse> =
     }
 
     const data = await response.json();
-    console.log('AI Agent response:', data);
+    console.log('AI Agent response structure:', {
+      hasChoices: !!data.choices,
+      choicesLength: data.choices?.length,
+      hasContent: !!data.content,
+      dataType: typeof data
+    });
     
     // Extract the assistant's message content
     // DigitalOcean AI agents return OpenAI-compatible format
     let aiText = '';
     if (data.choices && data.choices.length > 0 && data.choices[0].message) {
       aiText = data.choices[0].message.content;
+      console.log('📝 Extracted content from choices[0].message.content');
     } else if (data.content) {
       aiText = data.content;
+      console.log('📝 Extracted content from data.content');
     } else if (typeof data === 'string') {
       aiText = data;
+      console.log('📝 Using data directly as string');
     } else {
       aiText = JSON.stringify(data);
+      console.log('⚠️ No recognized format, stringifying entire response');
     }
+    
+    console.log('📄 Text to parse (length:', aiText.length, ')');
+    console.log('📄 First 200 chars:', aiText.substring(0, 200));
     
     // Parse the AI response to extract structured data
     return parseAIResponse(aiText);
@@ -167,62 +179,151 @@ export const callAIAgent = async (prompt: string): Promise<AIAnalysisResponse> =
  * Parse AI response text into structured format
  */
 function parseAIResponse(text: string): AIAnalysisResponse {
-  console.log('Parsing AI response:', text.substring(0, 500));
+  console.log('Parsing AI response (first 500 chars):', text.substring(0, 500));
   
-  // Extract risk level percentage - multiple patterns
+  // Extract risk level percentage - multiple patterns including markdown formatting
   let riskLevel = 0;
   const patterns = [
-    /(?:Risk Level|risk level|risk)[:\s-]*(\d+)%/i,
-    /(\d+)%\s*(?:risk|chance|probability)/i,
-    /(?:likelihood|probability|chance)[:\s-]*(\d+)%/i,
+    /\*\*Risk Level\*\*[:\s]*(\d+)%/i,           // **Risk Level:** 80%
+    /Risk Level[:\s*-]+(\d+)%/i,                 // Risk Level: 80%
+    /(?:risk level|risk)[:\s-]*(\d+)%/i,         // risk level: 80%
+    /(\d+)%[:\s]*risk/i,                         // 80% risk
+    /(\d+)%\s*(?:risk|chance|probability)/i,     // 80% chance
+    /(?:likelihood|probability|chance)[:\s-]*(\d+)%/i, // likelihood: 80%
   ];
   
   for (const pattern of patterns) {
     const match = text.match(pattern);
     if (match) {
       riskLevel = parseInt(match[1]);
-      console.log(`Found risk level: ${riskLevel}% using pattern: ${pattern}`);
+      console.log(`✅ Found risk level: ${riskLevel}% using pattern: ${pattern}`);
+      break;
+    }
+  }
+  
+  if (riskLevel === 0) {
+    console.warn('⚠️ Could not extract risk level from response. Checking raw text...');
+    console.log('Full response length:', text.length);
+    console.log('First 1000 characters:', text.substring(0, 1000));
+    console.log('Looking for "Risk Level" or "risk level":', text.toLowerCase().includes('risk level'));
+    
+    // Try to find any percentage in the text
+    const anyPercentMatch = text.match(/(\d+)%/);
+    if (anyPercentMatch) {
+      console.log('Found a percentage in text:', anyPercentMatch[0], 'at position', anyPercentMatch.index);
+      console.log('Context around it:', text.substring(Math.max(0, anyPercentMatch.index! - 50), anyPercentMatch.index! + 50));
+    }
+  }
+
+  // Extract risk category - handle markdown formatting
+  const categoryPatterns = [
+    /\*\*Risk Category\*\*[:\s]*(Very High|High|Moderate|Low)/i,
+    /Risk Category[:\s*-]+(Very High|High|Moderate|Low)/i,
+    /(?:risk category|category)[:\s-]*(Very High|High|Moderate|Low)/i,
+  ];
+  
+  let riskCategory = 'Unknown';
+  for (const pattern of categoryPatterns) {
+    const match = text.match(pattern);
+    if (match) {
+      riskCategory = match[1];
+      console.log(`✅ Found risk category: ${riskCategory}`);
       break;
     }
   }
 
-  // Extract risk category
-  const categoryMatch = text.match(/(?:Risk Category|risk category|category)[:\s-]*(Low|Moderate|High|Very High)/i);
-  const riskCategory = categoryMatch ? categoryMatch[1] : 'Unknown';
-
-  // Extract key risk factors
-  const factorsSection = text.match(/(?:Key Risk Factors?|risk factors?)[:\s]*\n([\s\S]*?)(?:\n\n|\n[A-Z])/i);
+  // Extract key risk factors - handle markdown and numbered lists
+  const factorsPatterns = [
+    /\*\*Key Risk Factors?\*\*[:\s]*\n([\s\S]*?)(?:\n\n|\*\*[A-Z])/i,
+    /Key Risk Factors?[:\s]*\n([\s\S]*?)(?:\n\n|\n[A-Z])/i,
+  ];
+  
   const keyRiskFactors: string[] = [];
-  if (factorsSection) {
-    const factorLines = factorsSection[1].split('\n');
-    factorLines.forEach(line => {
-      const trimmed = line.trim();
-      if (trimmed && (trimmed.startsWith('-') || trimmed.startsWith('•') || /^\d+\./.test(trimmed))) {
-        keyRiskFactors.push(trimmed.replace(/^[-•\d.)\s]+/, ''));
+  for (const pattern of factorsPatterns) {
+    const match = text.match(pattern);
+    if (match) {
+      const factorLines = match[1].split('\n');
+      factorLines.forEach(line => {
+        const trimmed = line.trim();
+        // Match numbered lists (1., 2.), bullets (-, •), or **bold items**
+        if (trimmed && (trimmed.startsWith('-') || trimmed.startsWith('•') || /^\d+\./.test(trimmed))) {
+          // Remove list markers and extract text, handling **bold** markers
+          let factor = trimmed.replace(/^[-•\d.)\s]+/, '').replace(/\*\*/g, '');
+          // Remove markdown and get just the main text (before explanations)
+          if (factor.includes('–')) {
+            factor = factor.split('–')[0].trim();
+          }
+          if (factor) {
+            keyRiskFactors.push(factor);
+          }
+        }
+      });
+      if (keyRiskFactors.length > 0) {
+        console.log(`✅ Found ${keyRiskFactors.length} risk factors`);
+        break;
       }
-    });
+    }
   }
 
-  // Extract trend analysis
-  const trendMatch = text.match(/(?:Trend Analysis|trend analysis)[:\s]*\n([\s\S]*?)(?:\n\n|\n[A-Z])/i);
-  const trendAnalysis = trendMatch ? trendMatch[1].trim() : '';
+  // Extract trend analysis - handle markdown
+  const trendPatterns = [
+    /\*\*Trend Analysis\*\*[:\s]*\n([\s\S]*?)(?:\n\n|\*\*[A-Z])/i,
+    /Trend Analysis[:\s]*\n([\s\S]*?)(?:\n\n|\n[A-Z])/i,
+  ];
+  
+  let trendAnalysis = '';
+  for (const pattern of trendPatterns) {
+    const match = text.match(pattern);
+    if (match) {
+      trendAnalysis = match[1].trim();
+      console.log('✅ Found trend analysis');
+      break;
+    }
+  }
 
-  // Extract recommendations
-  const recsSection = text.match(/(?:Recommendations?)[:\s]*\n([\s\S]*?)(?:\n\n|\n[A-Z]|$)/i);
+  // Extract recommendations - handle markdown and numbered lists
+  const recsPatterns = [
+    /\*\*Recommendations?\*\*[:\s]*\n([\s\S]*?)(?:\n\n|\*\*[A-Z])/i,
+    /Recommendations?[:\s]*\n([\s\S]*?)(?:\n\n|\n[A-Z]|$)/i,
+  ];
+  
   const recommendations: string[] = [];
-  if (recsSection) {
-    const recLines = recsSection[1].split('\n');
-    recLines.forEach(line => {
-      const trimmed = line.trim();
-      if (trimmed && (trimmed.startsWith('-') || trimmed.startsWith('•') || /^\d+\./.test(trimmed))) {
-        recommendations.push(trimmed.replace(/^[-•\d.)\s]+/, ''));
+  for (const pattern of recsPatterns) {
+    const match = text.match(pattern);
+    if (match) {
+      const recLines = match[1].split('\n');
+      recLines.forEach(line => {
+        const trimmed = line.trim();
+        if (trimmed && (trimmed.startsWith('-') || trimmed.startsWith('•') || /^\d+\./.test(trimmed))) {
+          let rec = trimmed.replace(/^[-•\d.)\s]+/, '').replace(/\*\*/g, '');
+          if (rec) {
+            recommendations.push(rec);
+          }
+        }
+      });
+      if (recommendations.length > 0) {
+        console.log(`✅ Found ${recommendations.length} recommendations`);
+        break;
       }
-    });
+    }
   }
 
-  // Extract confidence level
-  const confidenceMatch = text.match(/(?:Confidence Level|confidence)[:\s]*(Low|Medium|High)/i);
-  const confidenceLevel = confidenceMatch ? confidenceMatch[1] : 'Unknown';
+  // Extract confidence level - handle markdown
+  const confidencePatterns = [
+    /\*\*Confidence Level\*\*[:\s]*(Low|Medium|High)/i,
+    /Confidence Level[:\s]*(Low|Medium|High)/i,
+    /confidence[:\s]*(Low|Medium|High)/i,
+  ];
+  
+  let confidenceLevel = 'Unknown';
+  for (const pattern of confidencePatterns) {
+    const match = text.match(pattern);
+    if (match) {
+      confidenceLevel = match[1];
+      console.log(`✅ Found confidence: ${confidenceLevel}`);
+      break;
+    }
+  }
 
   return {
     riskLevel,

@@ -5,6 +5,8 @@ import multer from 'multer';
 import 'dotenv/config';
 import { query, closePool } from './db/database.js';
 import { parseWearableCSV, detectSource } from './utils/csvParser.js';
+import { processSummaryIndicators } from './utils/summaryProcessor.js';
+import { analyzeMigraineCorrelations } from './utils/migraineCorrelationAnalyzer.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1709,6 +1711,275 @@ app.delete('/api/calendar/migraine-day/:date', authenticate, async (req, res) =>
   }
 });
 
+// ============================================
+// SUMMARY INDICATORS ROUTES
+// ============================================
+
+// Process summary indicators (with caching)
+app.post('/api/summary/process', authenticate, async (req, res) => {
+  try {
+    const { forceReprocess = false } = req.body;
+    
+    // Check if processing is needed (cache check)
+    if (!forceReprocess) {
+      const lastProcessed = await query(
+        `SELECT MAX(processed_at) as last_processed
+         FROM summary_indicators
+         WHERE user_id = $1`,
+        [req.userId]
+      );
+      
+      if (lastProcessed.rows[0]?.last_processed) {
+        const lastProcessedTime = new Date(lastProcessed.rows[0].last_processed);
+        const now = new Date();
+        const hoursSinceLastProcess = (now - lastProcessedTime) / (1000 * 60 * 60);
+        
+        // If processed within last 6 hours, skip (cache)
+        if (hoursSinceLastProcess < 6) {
+          return res.json({
+            success: true,
+            data: {
+              cached: true,
+              lastProcessed: lastProcessedTime.toISOString(),
+              message: 'Summary indicators are up to date (cached)'
+            }
+          });
+        }
+      }
+    }
+
+    // Process summary indicators
+    const result = await processSummaryIndicators(req.userId, forceReprocess);
+    
+    res.json({
+      success: true,
+      data: {
+        cached: false,
+        ...result,
+        message: `Processed ${result.processed} days`
+      }
+    });
+  } catch (error) {
+    console.error('Process summary indicators error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error processing summary indicators',
+      error: error.message
+    });
+  }
+});
+
+// Get migraine correlation patterns for risk prediction
+app.get('/api/summary/correlations', authenticate, async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT pattern_type, pattern_name, pattern_definition,
+              correlation_strength, confidence_score, threshold_value,
+              avg_value_on_migraine_days, avg_value_on_normal_days,
+              migraine_days_count, total_days_analyzed,
+              last_updated_at
+       FROM migraine_correlations
+       WHERE user_id = $1
+       ORDER BY confidence_score DESC, ABS(correlation_strength) DESC`,
+      [req.userId]
+    );
+
+    const patterns = result.rows.map(row => ({
+      patternType: row.pattern_type,
+      patternName: row.pattern_name,
+      patternDefinition: row.pattern_definition,
+      correlationStrength: row.correlation_strength ? parseFloat(row.correlation_strength) : null,
+      confidenceScore: row.confidence_score ? parseFloat(row.confidence_score) : null,
+      thresholdValue: row.threshold_value ? parseFloat(row.threshold_value) : null,
+      avgValueOnMigraineDays: row.avg_value_on_migraine_days ? parseFloat(row.avg_value_on_migraine_days) : null,
+      avgValueOnNormalDays: row.avg_value_on_normal_days ? parseFloat(row.avg_value_on_normal_days) : null,
+      migraineDaysCount: parseInt(row.migraine_days_count) || 0,
+      totalDaysAnalyzed: parseInt(row.total_days_analyzed) || 0,
+      lastUpdated: row.last_updated_at.toISOString()
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        patterns,
+        count: patterns.length
+      }
+    });
+  } catch (error) {
+    console.error('Get migraine correlations error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching migraine correlations'
+    });
+  }
+});
+
+// Get data for risk prediction (last 24 hours + correlation patterns)
+app.get('/api/risk-prediction/data', authenticate, async (req, res) => {
+  try {
+    // Get last 24 hours of wearable data
+    const now = new Date();
+    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    const wearableDataResult = await query(
+      `SELECT timestamp, stress_value, recovery_value, heart_rate, hrv,
+              sleep_efficiency, sleep_heart_rate, skin_temperature, restless_periods
+       FROM wearable_data
+       WHERE user_id = $1 
+         AND timestamp >= $2 
+         AND timestamp <= $3
+       ORDER BY timestamp`,
+      [req.userId, twentyFourHoursAgo, now]
+    );
+
+    // Get correlation patterns
+    const correlationsResult = await query(
+      `SELECT pattern_type, pattern_name, pattern_definition, threshold_value,
+              correlation_strength, confidence_score
+       FROM migraine_correlations
+       WHERE user_id = $1
+       ORDER BY confidence_score DESC, ABS(correlation_strength) DESC`,
+      [req.userId]
+    );
+
+    // Format wearable data
+    const wearableData = wearableDataResult.rows.map(row => ({
+      timestamp: row.timestamp.toISOString(),
+      stress: row.stress_value ? parseFloat(row.stress_value) : null,
+      recovery: row.recovery_value ? parseFloat(row.recovery_value) : null,
+      heartRate: row.heart_rate ? parseFloat(row.heart_rate) : null,
+      hrv: row.hrv ? parseFloat(row.hrv) : null,
+      sleepEfficiency: row.sleep_efficiency ? parseFloat(row.sleep_efficiency) : null,
+      sleepHeartRate: row.sleep_heart_rate ? parseFloat(row.sleep_heart_rate) : null,
+      skinTemperature: row.skin_temperature ? parseFloat(row.skin_temperature) : null,
+      restlessPeriods: row.restless_periods ? parseFloat(row.restless_periods) : null
+    }));
+
+    // Format correlation patterns
+    const patterns = correlationsResult.rows.map(row => ({
+      patternType: row.pattern_type,
+      patternName: row.pattern_name,
+      patternDefinition: row.pattern_definition,
+      thresholdValue: row.threshold_value ? parseFloat(row.threshold_value) : null,
+      correlationStrength: row.correlation_strength ? parseFloat(row.correlation_strength) : null,
+      confidenceScore: row.confidence_score ? parseFloat(row.confidence_score) : null
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        wearableData,
+        patterns,
+        timeRange: {
+          start: twentyFourHoursAgo.toISOString(),
+          end: now.toISOString()
+        },
+        dataPointsCount: wearableData.length,
+        patternsCount: patterns.length
+      }
+    });
+  } catch (error) {
+    console.error('Get risk prediction data error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching risk prediction data'
+    });
+  }
+});
+
+// Get summary indicators for a date range
+app.get('/api/summary', authenticate, async (req, res) => {
+  try {
+    const { startDate, endDate, limit = '30' } = req.query;
+    
+    let queryText = `
+      SELECT id, period_start, period_end,
+             avg_stress, max_stress, stress_volatility, stress_trend,
+             avg_recovery, min_recovery, recovery_trend,
+             avg_heart_rate, resting_heart_rate, max_heart_rate,
+             avg_hrv, hrv_trend, hrv_volatility,
+             avg_sleep_efficiency, avg_sleep_heart_rate, avg_restless_periods,
+             avg_skin_temperature, temperature_variation,
+             overall_wellness_score, risk_factors, data_points_count,
+             processed_at, created_at, updated_at
+      FROM summary_indicators
+      WHERE user_id = $1
+    `;
+    const queryParams = [req.userId];
+
+    if (startDate) {
+      queryText += ` AND period_start >= $${queryParams.length + 1}`;
+      queryParams.push(startDate);
+    }
+
+    if (endDate) {
+      queryText += ` AND period_end <= $${queryParams.length + 1}`;
+      queryParams.push(endDate);
+    }
+
+    queryText += ` ORDER BY period_start DESC LIMIT $${queryParams.length + 1}`;
+    queryParams.push(parseInt(limit));
+
+    const result = await query(queryText, queryParams);
+
+    const summaries = result.rows.map(row => ({
+      id: row.id,
+      periodStart: row.period_start.toISOString(),
+      periodEnd: row.period_end.toISOString(),
+      stress: {
+        avg: row.avg_stress ? parseFloat(row.avg_stress) : null,
+        max: row.max_stress ? parseFloat(row.max_stress) : null,
+        volatility: row.stress_volatility ? parseFloat(row.stress_volatility) : null,
+        trend: row.stress_trend
+      },
+      recovery: {
+        avg: row.avg_recovery ? parseFloat(row.avg_recovery) : null,
+        min: row.min_recovery ? parseFloat(row.min_recovery) : null,
+        trend: row.recovery_trend
+      },
+      heartRate: {
+        avg: row.avg_heart_rate ? parseFloat(row.avg_heart_rate) : null,
+        resting: row.resting_heart_rate ? parseFloat(row.resting_heart_rate) : null,
+        max: row.max_heart_rate ? parseFloat(row.max_heart_rate) : null
+      },
+      hrv: {
+        avg: row.avg_hrv ? parseFloat(row.avg_hrv) : null,
+        trend: row.hrv_trend,
+        volatility: row.hrv_volatility ? parseFloat(row.hrv_volatility) : null
+      },
+      sleep: {
+        efficiency: row.avg_sleep_efficiency ? parseFloat(row.avg_sleep_efficiency) : null,
+        heartRate: row.avg_sleep_heart_rate ? parseFloat(row.avg_sleep_heart_rate) : null,
+        restlessPeriods: row.avg_restless_periods ? parseFloat(row.avg_restless_periods) : null
+      },
+      temperature: {
+        avg: row.avg_skin_temperature ? parseFloat(row.avg_skin_temperature) : null,
+        variation: row.temperature_variation ? parseFloat(row.temperature_variation) : null
+      },
+      overallWellnessScore: row.overall_wellness_score ? parseFloat(row.overall_wellness_score) : null,
+      riskFactors: row.risk_factors || [],
+      dataPointsCount: parseInt(row.data_points_count) || 0,
+      processedAt: row.processed_at.toISOString(),
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString()
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        summaries,
+        count: summaries.length
+      }
+    });
+  } catch (error) {
+    console.error('Get summary indicators error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching summary indicators'
+    });
+  }
+});
+
 // Get wearable data statistics
 app.get('/api/wearable/statistics', authenticate, async (req, res) => {
   try {
@@ -1861,5 +2132,9 @@ app.listen(PORT, () => {
   console.log(`   GET    /api/calendar`);
   console.log(`   POST   /api/calendar/migraine-day`);
   console.log(`   DELETE /api/calendar/migraine-day/:date`);
+  console.log(`   POST   /api/summary/process`);
+  console.log(`   GET    /api/summary`);
+  console.log(`   GET    /api/summary/correlations`);
+  console.log(`   GET    /api/risk-prediction/data`);
   console.log(`\n🔐 Demo user: demo@example.com / demo123`);
 });

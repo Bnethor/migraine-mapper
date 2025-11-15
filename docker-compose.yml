@@ -19,6 +19,8 @@ services:
       - ./migraine-tracker-api/db/migration_003_wearable_data.sql:/docker-entrypoint-initdb.d/04-migration_003.sql
       - ./migraine-tracker-api/db/migration_004_upload_sessions.sql:/docker-entrypoint-initdb.d/05-migration_004.sql
       - ./migraine-tracker-api/db/migration_005_migraine_day_markers.sql:/docker-entrypoint-initdb.d/06-migration_005.sql
+      - ./migraine-tracker-api/db/migration_006_summary_indicators.sql:/docker-entrypoint-initdb.d/07-migration_006.sql
+      - ./migraine-tracker-api/db/migration_007_migraine_correlations.sql:/docker-entrypoint-initdb.d/08-migration_007.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U migraineuser -d migrainetracker"]
       interval: 10s

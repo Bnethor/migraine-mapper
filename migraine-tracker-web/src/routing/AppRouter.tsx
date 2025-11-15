@@ -7,6 +7,7 @@ import MigraineDetailPage from '../features/migraine/MigraineDetailPage';
 import MigraineFormPage from '../features/migraine/MigraineFormPage';
 import ProfilePage from '../features/profile/ProfilePage';
 import WearableUploadPage from '../features/wearable/WearableUploadPage';
+import CalendarPage from '../features/calendar/CalendarPage';
 
 // ============================================
 // APP ROUTER
@@ -89,6 +90,15 @@ export const AppRouter = () => {
         element={
           <ProtectedRoute>
             <WearableUploadPage />
+          </ProtectedRoute>
+        }
+      />
+      
+      <Route
+        path="/calendar"
+        element={
+          <ProtectedRoute>
+            <CalendarPage />
           </ProtectedRoute>
         }
       />

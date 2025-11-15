@@ -1444,6 +1444,271 @@ app.delete('/api/wearable/uploads/:id', authenticate, async (req, res) => {
   }
 });
 
+// ============================================
+// CALENDAR & MIGRAINE DAY MARKERS ROUTES
+// ============================================
+
+// Get calendar data (days with wearable data and migraine markers)
+app.get('/api/calendar', authenticate, async (req, res) => {
+  try {
+    const { year, month } = req.query;
+    
+    // Default to current month if not specified
+    const targetYear = year ? parseInt(year) : new Date().getFullYear();
+    const targetMonth = month ? parseInt(month) - 1 : new Date().getMonth();
+    
+    // Calculate date range for the month
+    const startDate = new Date(targetYear, targetMonth, 1);
+    const endDate = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59);
+    
+    // Get days with wearable data
+    const wearableDaysResult = await query(
+      `SELECT DISTINCT DATE(timestamp) as date, COUNT(*) as data_points
+       FROM wearable_data
+       WHERE user_id = $1 
+         AND timestamp >= $2 
+         AND timestamp <= $3
+       GROUP BY DATE(timestamp)
+       ORDER BY DATE(timestamp)`,
+      [req.userId, startDate, endDate]
+    );
+    
+    // Get migraine day markers for the month
+    // Build date strings using local date components to avoid timezone issues
+    const startYear = startDate.getFullYear();
+    const startMonth = String(startDate.getMonth() + 1).padStart(2, '0');
+    const startDay = String(startDate.getDate()).padStart(2, '0');
+    const startDateStr = `${startYear}-${startMonth}-${startDay}`;
+    
+    const endYear = endDate.getFullYear();
+    const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
+    const endDay = String(endDate.getDate()).padStart(2, '0');
+    const endDateStr = `${endYear}-${endMonth}-${endDay}`;
+    
+    const migraineMarkersResult = await query(
+      `SELECT date, is_migraine_day, severity, notes
+       FROM migraine_day_markers
+       WHERE user_id = $1 
+         AND date >= $2 
+         AND date <= $3
+       ORDER BY date`,
+      [req.userId, startDateStr, endDateStr]
+    );
+    
+    // Combine the data - PostgreSQL DATE type returns as string in YYYY-MM-DD format
+    // But we need to handle it properly to avoid timezone issues
+    const daysWithData = new Set(wearableDaysResult.rows.map(row => {
+      // PostgreSQL DATE() function returns a DATE type which is already in YYYY-MM-DD format
+      if (typeof row.date === 'string') {
+        return row.date;
+      }
+      // If it's a Date object, extract local date components
+      const year = row.date.getFullYear();
+      const month = String(row.date.getMonth() + 1).padStart(2, '0');
+      const day = String(row.date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }));
+    
+    const migraineMarkers = new Map();
+    migraineMarkersResult.rows.forEach(row => {
+      // PostgreSQL DATE type is already a string in YYYY-MM-DD format
+      const dateKey = typeof row.date === 'string' ? row.date : 
+        (() => {
+          const year = row.date.getFullYear();
+          const month = String(row.date.getMonth() + 1).padStart(2, '0');
+          const day = String(row.date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        })();
+      migraineMarkers.set(dateKey, {
+        isMigraineDay: row.is_migraine_day,
+        severity: row.severity,
+        notes: row.notes
+      });
+    });
+    
+    // Build calendar days using local date components to avoid timezone issues
+    const calendarDays = [];
+    const currentDate = new Date(startDate);
+    
+    while (currentDate <= endDate) {
+      // Get local date components to avoid timezone shift
+      const year = currentDate.getFullYear();
+      const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+      const day = String(currentDate.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+      const marker = migraineMarkers.get(dateStr);
+      
+      // Find matching data point count
+      const dataPointRow = wearableDaysResult.rows.find(r => {
+        let rowDateStr;
+        if (typeof r.date === 'string') {
+          rowDateStr = r.date;
+        } else {
+          // Extract local date components to avoid timezone shift
+          const year = r.date.getFullYear();
+          const month = String(r.date.getMonth() + 1).padStart(2, '0');
+          const day = String(r.date.getDate()).padStart(2, '0');
+          rowDateStr = `${year}-${month}-${day}`;
+        }
+        return rowDateStr === dateStr;
+      });
+      
+      calendarDays.push({
+        date: dateStr,
+        hasData: daysWithData.has(dateStr),
+        dataPoints: dataPointRow ? parseInt(dataPointRow.data_points) : 0,
+        isMigraineDay: marker?.isMigraineDay || false,
+        severity: marker?.severity || null,
+        notes: marker?.notes || null
+      });
+      
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        year: targetYear,
+        month: targetMonth + 1,
+        days: calendarDays,
+        totalDaysWithData: daysWithData.size,
+        totalMigraineDays: migraineMarkersResult.rows.filter(r => r.is_migraine_day).length
+      }
+    });
+  } catch (error) {
+    console.error('Get calendar error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching calendar data'
+    });
+  }
+});
+
+// Mark/unmark migraine day
+app.post('/api/calendar/migraine-day', authenticate, async (req, res) => {
+  try {
+    const { date, isMigraineDay, severity, notes } = req.body;
+    
+    if (!date) {
+      return res.status(400).json({
+        success: false,
+        message: 'Date is required'
+      });
+    }
+    
+    // Validate and parse date (handle YYYY-MM-DD format correctly)
+    let dateOnly;
+    if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      // Already in YYYY-MM-DD format, use directly
+      dateOnly = date;
+    } else {
+      // Parse as local date to avoid timezone issues
+      const dateObj = new Date(date);
+      if (isNaN(dateObj.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid date format'
+        });
+      }
+      // Get local date components to avoid timezone shift
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      dateOnly = `${year}-${month}-${day}`;
+    }
+    
+    // Upsert migraine day marker
+    const result = await query(
+      `INSERT INTO migraine_day_markers (user_id, date, is_migraine_day, severity, notes)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (user_id, date) 
+       DO UPDATE SET
+         is_migraine_day = EXCLUDED.is_migraine_day,
+         severity = EXCLUDED.severity,
+         notes = EXCLUDED.notes,
+         updated_at = CURRENT_TIMESTAMP
+       RETURNING id, date, is_migraine_day, severity, notes, created_at, updated_at`,
+      [
+        req.userId,
+        dateOnly,
+        isMigraineDay !== undefined ? isMigraineDay : true,
+        severity !== undefined ? severity : null,
+        notes || null
+      ]
+    );
+    
+    const marker = result.rows[0];
+    
+    // PostgreSQL DATE type is already in YYYY-MM-DD format as string
+    const markerDate = typeof marker.date === 'string' 
+      ? marker.date 
+      : marker.date.toISOString().split('T')[0];
+    
+    res.json({
+      success: true,
+      data: {
+        id: marker.id,
+        date: markerDate,
+        isMigraineDay: marker.is_migraine_day,
+        severity: marker.severity,
+        notes: marker.notes,
+        createdAt: marker.created_at.toISOString(),
+        updatedAt: marker.updated_at.toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Mark migraine day error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error marking migraine day'
+    });
+  }
+});
+
+// Remove migraine day marker
+app.delete('/api/calendar/migraine-day/:date', authenticate, async (req, res) => {
+  try {
+    const dateStr = req.params.date;
+    
+    // Validate and parse date (handle YYYY-MM-DD format correctly)
+    let dateOnly;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      // Already in YYYY-MM-DD format, use directly
+      dateOnly = dateStr;
+    } else {
+      // Parse as local date to avoid timezone issues
+      const dateObj = new Date(dateStr);
+      if (isNaN(dateObj.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid date format'
+        });
+      }
+      // Get local date components to avoid timezone shift
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      dateOnly = `${year}-${month}-${day}`;
+    }
+    
+    await query(
+      'DELETE FROM migraine_day_markers WHERE user_id = $1 AND date = $2',
+      [req.userId, dateOnly]
+    );
+    
+    res.json({
+      success: true,
+      message: 'Migraine day marker removed successfully'
+    });
+  } catch (error) {
+    console.error('Remove migraine day error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error removing migraine day marker'
+    });
+  }
+});
+
 // Get wearable data statistics
 app.get('/api/wearable/statistics', authenticate, async (req, res) => {
   try {
@@ -1593,5 +1858,8 @@ app.listen(PORT, () => {
   console.log(`   GET    /api/wearable/uploads`);
   console.log(`   GET    /api/wearable/uploads/:id`);
   console.log(`   DELETE /api/wearable/uploads/:id`);
+  console.log(`   GET    /api/calendar`);
+  console.log(`   POST   /api/calendar/migraine-day`);
+  console.log(`   DELETE /api/calendar/migraine-day/:date`);
   console.log(`\n🔐 Demo user: demo@example.com / demo123`);
 });

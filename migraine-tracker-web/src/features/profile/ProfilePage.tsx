@@ -141,7 +141,7 @@ export const ProfilePage = () => {
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <User size={32} className="text-primary-600" />
+          <User size={32} className="text-primary-600 dark:text-primary-400" />
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
               Clinical Profile
@@ -157,8 +157,8 @@ export const ProfilePage = () => {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
             {/* Success/Error Messages */}
             {success && (
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-green-800 font-medium">
+              <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                <p className="text-green-800 dark:text-green-300 font-medium">
                   ✓ Profile updated successfully!
                 </p>
               </div>
@@ -174,7 +174,7 @@ export const ProfilePage = () => {
 
             {/* Episode Characteristics */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b pb-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                 Typical Episode Characteristics
               </h2>
               
@@ -222,7 +222,7 @@ export const ProfilePage = () => {
 
             {/* Pain Characteristics */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b pb-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                 Typical Pain Characteristics
               </h2>
               
@@ -284,7 +284,7 @@ export const ProfilePage = () => {
 
             {/* Common Symptoms */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b pb-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                 Common Symptoms You Experience
               </h2>
               
@@ -345,7 +345,7 @@ export const ProfilePage = () => {
 
             {/* Aura Symptoms */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b pb-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                 Typical Aura Symptoms
               </h2>
               
@@ -390,7 +390,7 @@ export const ProfilePage = () => {
 
             {/* Neurological Symptoms */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b pb-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                 Neurological Symptoms You Experience
               </h2>
               
@@ -529,7 +529,7 @@ export const ProfilePage = () => {
 
             {/* Family History & Diagnosis */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b pb-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                 Additional Information
               </h2>
               
@@ -553,7 +553,7 @@ export const ProfilePage = () => {
                 </label>
                 <select
                   {...register('diagnosedType')}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100 dark:bg-gray-700"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100 dark:disabled:bg-gray-800 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                   disabled={isLoading}
                 >
                   <option value="">Not diagnosed / Unknown</option>
@@ -569,7 +569,7 @@ export const ProfilePage = () => {
             </div>
 
             {/* Action Button */}
-            <div className="pt-4 border-t">
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
               <Button
                 type="submit"
                 variant="primary"

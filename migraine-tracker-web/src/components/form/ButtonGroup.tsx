@@ -28,7 +28,7 @@ export const ButtonGroup = ({
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-        {label} {required && <span className="text-red-500">*</span>}
+        {label} {required && <span className="text-red-500 dark:text-red-400">*</span>}
       </label>
       <div className="flex flex-wrap gap-2">
         {options.map((option) => (
@@ -41,8 +41,8 @@ export const ButtonGroup = ({
               px-4 py-2 rounded-lg border-2 transition-all
               ${
                 value === option.value
-                  ? 'border-primary-600 bg-primary-50 text-primary-700 font-medium'
-                  : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                  ? 'border-primary-600 dark:border-primary-500 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 font-medium'
+                  : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'
               }
               ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
             `}
@@ -52,7 +52,7 @@ export const ButtonGroup = ({
           </button>
         ))}
       </div>
-      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>}
     </div>
   );
 };
@@ -86,7 +86,7 @@ export const ToggleButton = ({
           disabled={disabled}
           className={`
             relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-            ${value === 1 ? 'bg-primary-600' : 'bg-gray-200'}
+            ${value === 1 ? 'bg-primary-600 dark:bg-primary-500' : 'bg-gray-200 dark:bg-gray-700'}
             ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
           `}
         >
@@ -101,7 +101,7 @@ export const ToggleButton = ({
       {helperText && (
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{helperText}</p>
       )}
-      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>}
     </div>
   );
 };

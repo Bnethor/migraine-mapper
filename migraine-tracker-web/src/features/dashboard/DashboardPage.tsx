@@ -1,15 +1,19 @@
-import { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { 
   Calendar, 
   TrendingUp, 
   AlertCircle, 
   Activity,
-  Plus 
+  Plus,
+  Brain,
+  Copy,
+  CheckCircle2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { migraineService } from '../../api/migraineService';
 import { processSummaryIndicators } from '../../api/summaryService';
+import { getRiskAnalysisPrompt } from '../../api/riskAnalysisService';
 import { 
   Layout, 
   Card, 
@@ -37,6 +41,33 @@ import RecentEntries from './RecentEntries';
  */
 export const DashboardPage = () => {
   const navigate = useNavigate();
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [promptData, setPromptData] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // Generate AI prompt mutation
+  const generatePromptMutation = useMutation({
+    mutationFn: getRiskAnalysisPrompt,
+    onSuccess: (response) => {
+      if (response.data) {
+        setPromptData(response.data.prompt);
+        setShowPrompt(true);
+      }
+    },
+    onError: (error: any) => {
+      console.error('Error generating prompt:', error);
+      alert(error.response?.data?.message || 'Failed to generate risk analysis prompt');
+    }
+  });
+
+  // Copy prompt to clipboard
+  const handleCopyPrompt = () => {
+    if (promptData) {
+      navigator.clipboard.writeText(promptData);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   // Process summary indicators when entering dashboard
   useEffect(() => {
@@ -194,6 +225,82 @@ export const DashboardPage = () => {
             </div>
           </Card>
         </div>
+
+        {/* AI Risk Analysis Section */}
+        <Card padding="lg" className="border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-purple-100 rounded-lg">
+                <Brain className="text-purple-600" size={28} />
+              </div>
+              <div className="flex-1">
+                <CardTitle>AI-Powered Risk Analysis</CardTitle>
+                <CardDescription>
+                  Generate a comprehensive 12-hour migraine risk assessment based on your recent data and patterns
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+
+          <div className="mt-6 space-y-4">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button
+                variant="primary"
+                leftIcon={<Brain size={20} />}
+                onClick={() => generatePromptMutation.mutate()}
+                disabled={generatePromptMutation.isPending}
+                className="flex-1 sm:flex-initial"
+              >
+                {generatePromptMutation.isPending ? 'Generating...' : 'Generate Risk Analysis Prompt'}
+              </Button>
+              {promptData && (
+                <Button
+                  variant="secondary"
+                  leftIcon={copied ? <CheckCircle2 size={20} /> : <Copy size={20} />}
+                  onClick={handleCopyPrompt}
+                  className="flex-1 sm:flex-initial"
+                >
+                  {copied ? 'Copied!' : 'Copy to Clipboard'}
+                </Button>
+              )}
+            </div>
+
+            {showPrompt && promptData && (
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-700">
+                    AI Prompt Ready
+                  </h3>
+                  <button
+                    onClick={() => setShowPrompt(false)}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Hide
+                  </button>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto">
+                  <pre className="text-sm text-gray-800 whitespace-pre-wrap font-mono">
+                    {promptData}
+                  </pre>
+                </div>
+                <p className="text-xs text-gray-600">
+                  💡 <strong>Next Step:</strong> Copy this prompt and paste it into your DigitalOcean AI agent endpoint to get your personalized migraine risk analysis.
+                </p>
+              </div>
+            )}
+
+            {generatePromptMutation.isError && (
+              <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">
+                <p>Failed to generate prompt. Make sure you have:</p>
+                <ul className="list-disc list-inside mt-2 ml-2">
+                  <li>Uploaded wearable data (last 24 hours)</li>
+                  <li>Marked migraine days in the calendar</li>
+                  <li>Completed your user profile</li>
+                </ul>
+              </div>
+            )}
+          </div>
+        </Card>
 
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

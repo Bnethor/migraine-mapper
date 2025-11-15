@@ -144,6 +144,11 @@ export const DashboardPage = () => {
                 <p className="text-2xl font-bold text-gray-900">
                   {stats?.totalEntries || 0}
                 </p>
+                {stats?.migraineEntries !== undefined && stats?.wearableDays !== undefined && (
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {stats.migraineEntries} logs + {stats.wearableDays} data days
+                  </p>
+                )}
               </div>
             </div>
           </Card>
@@ -165,16 +170,35 @@ export const DashboardPage = () => {
           </Card>
 
           {/* Top Trigger */}
-          <Card hover padding="lg">
+          <Card 
+            hover 
+            padding="lg"
+            onClick={() => {
+              if (!stats?.topTrigger || stats.topTrigger.trigger === 'None') {
+                navigate('/calendar');
+              }
+            }}
+            className={!stats?.topTrigger || stats.topTrigger.trigger === 'None' ? 'cursor-pointer' : ''}
+          >
             <div className="flex items-center gap-4">
               <div className="p-3 bg-yellow-100 rounded-lg">
                 <AlertCircle className="text-yellow-600" size={24} />
               </div>
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-sm text-gray-600">Top Trigger</p>
-                <p className="text-lg font-bold text-gray-900 truncate">
-                  {stats?.mostCommonTriggers?.[0]?.trigger || 'None'}
+                <p className="text-base font-bold text-gray-900 break-words leading-tight">
+                  {stats?.topTrigger?.trigger || stats?.mostCommonTriggers?.[0]?.trigger || 'None'}
                 </p>
+                {stats?.topTrigger?.correlationStrength !== null && 
+                 stats?.topTrigger?.correlationStrength !== undefined ? (
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {Math.abs(stats.topTrigger.correlationStrength * 100).toFixed(0)}% correlation
+                  </p>
+                ) : stats?.wearableDays && stats.wearableDays > 0 && (
+                  <p className="text-xs text-blue-600 mt-0.5 hover:underline">
+                    Mark migraine days →
+                  </p>
+                )}
               </div>
             </div>
           </Card>
@@ -188,7 +212,7 @@ export const DashboardPage = () => {
               <div>
                 <p className="text-sm text-gray-600">This Month</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {stats?.frequencyByMonth?.[0]?.count || 0}
+                  {stats?.frequencyByMonth?.[stats.frequencyByMonth.length - 1]?.count || 0}
                 </p>
               </div>
             </div>

@@ -154,26 +154,28 @@ export const CalendarPage = () => {
     });
   };
 
-  // Handle day click
+  // Handle day click - allows manual override of automatic marking
   const handleDayClick = (day: CalendarDay, dayNumber: number) => {
     if (!day.hasData) {
       return; // Don't allow marking days without data
+    }
+
+    // Days with entries are automatically marked
+    // Only allow unmarking if manually marked OR no entries exist
+    if (day.migraineCount && day.migraineCount > 0) {
+      // Has entries - don't allow toggling since it's auto-marked
+      return;
     }
 
     // Ensure we use the correct date - construct it from the current month/year and day number
     // This avoids any timezone issues from the API response
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(dayNumber).padStart(2, '0')}`;
     
-    // Log for debugging (can be removed later)
-    if (dateStr !== day.date) {
-      console.warn('Date mismatch:', { dayNumber, constructedDate: dateStr, apiDate: day.date });
-    }
-
     if (day.isMigraineDay) {
-      // Remove marker
+      // Remove manual marker
       removeMutation.mutate(dateStr);
     } else {
-      // Mark as migraine day
+      // Mark as migraine day manually
       markMutation.mutate({ date: dateStr, isMigraineDay: true });
     }
   };
@@ -205,12 +207,14 @@ export const CalendarPage = () => {
       <button
         key={day.date}
         onClick={() => handleDayClick(day, dayNumber)}
-        disabled={!day.hasData || markMutation.isPending || removeMutation.isPending}
+        disabled={!day.hasData || markMutation.isPending || removeMutation.isPending || (day.migraineCount && day.migraineCount > 0)}
         className={`
           relative p-2 h-20 border border-gray-200 rounded-lg
           transition-all duration-200
-          ${day.hasData
+          ${day.hasData && (!day.migraineCount || day.migraineCount === 0)
             ? 'hover:bg-gray-50 hover:border-blue-300 cursor-pointer'
+            : day.hasData
+            ? 'cursor-default'
             : 'bg-gray-50 opacity-50 cursor-not-allowed'
           }
           ${isToday ? 'ring-2 ring-blue-500' : ''}
@@ -218,11 +222,13 @@ export const CalendarPage = () => {
           ${markMutation.isPending || removeMutation.isPending ? 'opacity-50' : ''}
         `}
         title={
-          day.hasData
-            ? day.isMigraineDay
-              ? 'Click to unmark as migraine day'
-              : 'Click to mark as migraine day'
-            : 'No wearable data available for this day'
+          !day.hasData
+            ? 'No wearable data available for this day'
+            : day.migraineCount && day.migraineCount > 0
+            ? `${day.migraineCount} migraine ${day.migraineCount === 1 ? 'entry' : 'entries'} (automatically marked)`
+            : day.isMigraineDay
+            ? 'Click to unmark (manually marked day)'
+            : 'Click to manually mark as migraine day'
         }
       >
         <div className="flex flex-col h-full">
@@ -235,15 +241,27 @@ export const CalendarPage = () => {
               {dayNumber}
             </span>
             {day.isMigraineDay && (
-              <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+              <div className="flex items-center gap-1">
+                {day.migraineCount && day.migraineCount > 1 && (
+                  <span className="text-xs font-bold text-red-700">{day.migraineCount}</span>
+                )}
+                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+              </div>
             )}
           </div>
-          {day.hasData && (
-            <div className="flex items-center gap-1 mt-auto">
-              <CheckCircle2 className="w-3 h-3 text-green-600 flex-shrink-0" />
-              <span className="text-xs text-gray-600">{day.dataPoints}</span>
-            </div>
-          )}
+          <div className="flex flex-col gap-1 mt-auto">
+            {day.hasData && (
+              <div className="flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-green-600 flex-shrink-0" />
+                <span className="text-xs text-gray-600">{day.dataPoints}</span>
+              </div>
+            )}
+            {day.migraineCount && day.migraineCount > 0 && (
+              <div className="text-xs font-medium text-red-700">
+                {day.migraineCount} {day.migraineCount === 1 ? 'entry' : 'entries'}
+              </div>
+            )}
+          </div>
         </div>
       </button>
     );
@@ -306,7 +324,7 @@ export const CalendarPage = () => {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Migraine Calendar</h1>
           <p className="mt-2 text-gray-600">
-            View days with wearable data and mark migraine days for analysis.
+            Days with migraine entries are automatically marked. View your wearable data and track patterns.
           </p>
         </div>
 
@@ -349,7 +367,7 @@ export const CalendarPage = () => {
                     {getMonthName()}
                   </CardTitle>
                   <CardDescription>
-                    Click on days with data to mark or unmark them as migraine days
+                    Days with migraine logs are automatically marked and counted
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
@@ -390,7 +408,7 @@ export const CalendarPage = () => {
                     disabled={removeAllMutation.isPending}
                   >
                     <XCircle className="w-4 h-4 mr-2" />
-                    {removeAllMutation.isPending ? 'Deselecting...' : 'Deselect All Migraine Days'}
+                    {removeAllMutation.isPending ? 'Deselecting...' : 'Deselect All'}
                   </Button>
                 </div>
               )}

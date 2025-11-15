@@ -102,6 +102,7 @@ export const MigraineFormPage = () => {
       queryClient.invalidateQueries({ queryKey: ['migraines'] });
       queryClient.invalidateQueries({ queryKey: ['migraine-stats'] });
       queryClient.invalidateQueries({ queryKey: ['recent-migraines'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar'] }); // Update calendar
       navigate('/migraines');
     },
     onError: (err: any) => {
@@ -117,6 +118,7 @@ export const MigraineFormPage = () => {
       queryClient.invalidateQueries({ queryKey: ['migraines'] });
       queryClient.invalidateQueries({ queryKey: ['migraine', id] });
       queryClient.invalidateQueries({ queryKey: ['migraine-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar'] }); // Update calendar
       navigate(`/migraines/${id}`);
     },
     onError: (err: any) => {

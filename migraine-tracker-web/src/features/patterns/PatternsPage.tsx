@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Info, RefreshCw } from 'lucide-react';
 import { getMigraineCorrelations } from '../../api/summaryService';
 import { processSummaryIndicators } from '../../api/summaryService';
@@ -24,6 +24,7 @@ const SHOW_FORCE_REPROCESS_BUTTON = true;
 export const PatternsPage = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processMessage, setProcessMessage] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const {
     data: correlationsData,
@@ -54,9 +55,11 @@ export const PatternsPage = () => {
       } else {
         setProcessMessage('Processing complete. Refreshing patterns...');
       }
-      // Refetch correlations after processing
+      // Refetch correlations and invalidate dashboard statistics after processing
       setTimeout(() => {
         refetch();
+        // Invalidate dashboard statistics to update the top trigger
+        queryClient.invalidateQueries({ queryKey: ['migraine-stats'] });
         setIsProcessing(false);
         setProcessMessage(null);
       }, 2000);

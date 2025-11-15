@@ -94,9 +94,12 @@ export const migraineService = {
     
     const response = await api.get<{ 
       data: { 
-        totalEntries: number, 
+        totalEntries: number,
+        migraineEntries?: number,
+        wearableDays?: number,
         averageIntensity: number, 
-        topTriggers: { trigger: string, count: number }[],
+        topTriggers: { trigger: string, count: number, correlationStrength?: number, confidenceScore?: number }[],
+        topTrigger?: { trigger: string, count: number, correlationStrength?: number, confidenceScore?: number },
         monthlyFrequency: { month: string, count: number }[]
       } 
     }>(
@@ -107,8 +110,11 @@ export const migraineService = {
     const backendStats = response.data.data;
     return {
       totalEntries: backendStats.totalEntries,
+      migraineEntries: backendStats.migraineEntries,
+      wearableDays: backendStats.wearableDays,
       averageIntensity: backendStats.averageIntensity,
-      mostCommonTriggers: backendStats.topTriggers,
+      mostCommonTriggers: backendStats.topTriggers || [],
+      topTrigger: backendStats.topTrigger,
       frequencyByMonth: backendStats.monthlyFrequency,
       intensityTrend: [], // Not provided by current backend implementation
     };

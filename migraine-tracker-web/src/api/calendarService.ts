@@ -10,6 +10,7 @@ export interface CalendarDay {
   hasData: boolean;
   dataPoints: number;
   isMigraineDay: boolean;
+  migraineCount?: number; // Number of migraine entries on this day
   severity: number | null;
   notes: string | null;
 }
@@ -85,5 +86,12 @@ export const removeMigraineDay = async (date: string): Promise<ApiResponse<{ mes
  */
 export const removeAllMigraineDays = async (): Promise<ApiResponse<{ message: string; data: { deletedCount: number } }>> => {
   return api.delete<{ message: string; data: { deletedCount: number } }>('/calendar/migraine-days/all');
+};
+
+/**
+ * Sync all migraine entries to calendar markers
+ */
+export const syncMigraineEntriesToCalendar = async (): Promise<ApiResponse<{ message: string; data: { synced: number; errors: number; total: number } }>> => {
+  return api.post<{ message: string; data: { synced: number; errors: number; total: number } }>('/calendar/sync-entries', {});
 };
 

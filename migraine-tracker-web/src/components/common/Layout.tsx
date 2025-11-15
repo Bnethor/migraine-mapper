@@ -12,9 +12,12 @@ import {
   User,
   Upload,
   Calendar,
-  TrendingUp
+  TrendingUp,
+  Moon,
+  Sun
 } from 'lucide-react';
 import { useAuth } from '../../features/auth/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Button } from './Button';
 
 // ============================================
@@ -35,6 +38,7 @@ interface LayoutProps {
  */
 export const Layout = ({ children }: LayoutProps) => {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -140,6 +144,31 @@ export const Layout = ({ children }: LayoutProps) => {
             </div>
           </Link>
           
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            className="w-full flex items-center justify-between px-4 py-2 mb-2 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+            aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+          >
+            <div className="flex items-center gap-3">
+              {theme === 'light' ? (
+                <Moon className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+              ) : (
+                <Sun className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+              )}
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+              </span>
+            </div>
+            <div className={`relative w-11 h-6 rounded-full transition-colors ${
+              theme === 'dark' ? 'bg-primary-600' : 'bg-gray-300'
+            }`}>
+              <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform ${
+                theme === 'dark' ? 'translate-x-5' : 'translate-x-0'
+              }`} />
+            </div>
+          </button>
+          
           <Button
             variant="ghost"
             size="sm"
@@ -218,6 +247,34 @@ export const Layout = ({ children }: LayoutProps) => {
                   </p>
                 </div>
               </Link>
+              
+              {/* Theme Toggle - Mobile */}
+              <button
+                onClick={() => {
+                  toggleTheme();
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center justify-between px-4 py-2 mb-2 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+              >
+                <div className="flex items-center gap-3">
+                  {theme === 'light' ? (
+                    <Moon className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                  ) : (
+                    <Sun className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                  )}
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+                  </span>
+                </div>
+                <div className={`relative w-11 h-6 rounded-full transition-colors ${
+                  theme === 'dark' ? 'bg-primary-600' : 'bg-gray-300'
+                }`}>
+                  <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform ${
+                    theme === 'dark' ? 'translate-x-5' : 'translate-x-0'
+                  }`} />
+                </div>
+              </button>
               
               <Button
                 variant="ghost"

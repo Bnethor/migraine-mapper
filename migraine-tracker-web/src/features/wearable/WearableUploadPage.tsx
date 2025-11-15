@@ -530,9 +530,9 @@ export const WearableUploadPage = () => {
                         View in Calendar
                       </Button>
                     )}
-                    <Button onClick={handleReset} variant="outline">
-                      Upload Another File
-                    </Button>
+                  <Button onClick={handleReset} variant="outline">
+                    Upload Another File
+                  </Button>
                   </div>
                 </div>
               </div>

@@ -5,7 +5,7 @@ type Theme = 'light' | 'dark';
 
 interface ThemeContextType {
   theme: Theme;
-  isAutoMode: boolean;
+  toggleTheme: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -22,45 +22,41 @@ interface ThemeProviderProps {
   children: ReactNode;
 }
 
-export const ThemeProvider = ({ children }: ThemeProviderProps) => {
-  const [theme, setTheme] = useState<Theme>('light');
+const THEME_STORAGE_KEY = 'migraine-tracker-theme';
 
-  const getThemeBasedOnTime = (): Theme => {
-    const now = new Date();
-    const hour = now.getHours();
-    
-    // Light mode: 8 AM (8) to 5 PM (17)
-    // Dark mode: otherwise
-    if (hour >= 8 && hour < 17) {
-      return 'light';
-    }
-    return 'dark';
+export const ThemeProvider = ({ children }: ThemeProviderProps) => {
+  // Initialize theme from localStorage or default to light
+  const [theme, setTheme] = useState<Theme>(() => {
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
+    return savedTheme || 'light';
+  });
+
+  const toggleTheme = () => {
+    setTheme((prevTheme) => {
+      const newTheme = prevTheme === 'light' ? 'dark' : 'light';
+      // Save to localStorage
+      localStorage.setItem(THEME_STORAGE_KEY, newTheme);
+      // Update document class
+      if (newTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      return newTheme;
+    });
   };
 
-  const updateTheme = () => {
-    const newTheme = getThemeBasedOnTime();
-    setTheme(newTheme);
-    
-    // Update document class
-    if (newTheme === 'dark') {
+  useEffect(() => {
+    // Apply theme on mount
+    if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-  };
-
-  useEffect(() => {
-    // Set initial theme
-    updateTheme();
-
-    // Check every minute for time changes
-    const interval = setInterval(updateTheme, 60000);
-
-    return () => clearInterval(interval);
-  }, []);
+  }, [theme]);
 
   return (
-    <ThemeContext.Provider value={{ theme, isAutoMode: true }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );

@@ -94,7 +94,7 @@ export const migraineService = {
     
     const response = await api.get<{ 
       data: { 
-        totalEntries: number,
+        totalEntries: number, 
         migraineEntries?: number,
         wearableDays?: number,
         averageIntensity: number, 

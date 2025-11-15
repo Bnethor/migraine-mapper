@@ -574,27 +574,27 @@ app.get('/api/migraine/statistics', authenticate, async (req, res) => {
     } else {
       console.log(`[Dashboard Stats] No correlation patterns found, falling back to frequency-based triggers`);
       // Fallback to traditional frequency-based triggers if no correlations found
-      const triggersResult = await query(
-        `SELECT triggers
-         FROM migraine_entries
-         WHERE user_id = $1 AND triggers IS NOT NULL AND triggers != ''`,
-        [req.userId]
-      );
+    const triggersResult = await query(
+      `SELECT triggers
+       FROM migraine_entries
+       WHERE user_id = $1 AND triggers IS NOT NULL AND triggers != ''`,
+      [req.userId]
+    );
 
-      const triggerCounts = {};
-      triggersResult.rows.forEach(row => {
-        if (row.triggers) {
-          row.triggers.split(',').forEach(trigger => {
-            const trimmed = trigger.trim();
-            if (trimmed) {
-              triggerCounts[trimmed] = (triggerCounts[trimmed] || 0) + 1;
-            }
-          });
-        }
-      });
+    const triggerCounts = {};
+    triggersResult.rows.forEach(row => {
+      if (row.triggers) {
+        row.triggers.split(',').forEach(trigger => {
+          const trimmed = trigger.trim();
+          if (trimmed) {
+            triggerCounts[trimmed] = (triggerCounts[trimmed] || 0) + 1;
+          }
+        });
+      }
+    });
 
       const topTriggersByFreq = Object.entries(triggerCounts)
-        .map(([trigger, count]) => ({ trigger, count }))
+      .map(([trigger, count]) => ({ trigger, count }))
         .sort((a, b) => b.count - a.count);
       
       if (topTriggersByFreq.length > 0) {
@@ -1833,7 +1833,7 @@ app.get('/api/calendar', authenticate, async (req, res) => {
         allDaysWithData.add(dateStr);
       }
     });
-
+    
     res.json({
       success: true,
       data: {

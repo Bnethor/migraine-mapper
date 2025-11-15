@@ -45,6 +45,8 @@ export const DashboardPage = () => {
   const [promptData, setPromptData] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('do_ai_agent_api_key') || '');
   
   // Simulated data for testing
   const [useSimulatedData, setUseSimulatedData] = useState(true);
@@ -107,6 +109,17 @@ export const DashboardPage = () => {
   const handleGetAIAnalysis = () => {
     if (promptData) {
       callAIMutation.mutate(promptData);
+    }
+  };
+
+  // Save API key to localStorage
+  const handleSaveApiKey = () => {
+    if (apiKey.trim()) {
+      localStorage.setItem('do_ai_agent_api_key', apiKey.trim());
+      setShowApiKeyInput(false);
+      alert('API key saved successfully!');
+    } else {
+      alert('Please enter a valid API key');
     }
   };
 
@@ -473,6 +486,72 @@ export const DashboardPage = () => {
           )}
         </Card>
 
+        {/* AI API Key Configuration Warning */}
+        {!apiKey && (
+          <Card padding="lg" className="border-2 border-yellow-200 bg-yellow-50">
+            <div className="flex items-start gap-3">
+              <div className="text-yellow-600 mt-1 text-2xl">⚠️</div>
+              <div className="flex-1">
+                <h3 className="text-sm font-bold text-gray-900 mb-2">AI Agent API Key Required</h3>
+                <p className="text-sm text-gray-700 mb-3">
+                  To use AI-powered risk analysis, configure your API key from:
+                  <br />
+                  <strong>DigitalOcean Control Panel → AI Agents → Your Agent → API Keys</strong>
+                </p>
+                <button
+                  onClick={() => setShowApiKeyInput(true)}
+                  className="px-4 py-2 text-sm bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+                >
+                  Configure API Key
+                </button>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* API Key Input */}
+        {showApiKeyInput && (
+          <Card padding="lg" className="border-2 border-blue-200 bg-blue-50">
+            <div className="space-y-4">
+              <h3 className="text-lg font-bold text-gray-900">Configure AI Agent API Key</h3>
+              <div className="bg-white p-3 rounded border border-blue-200 text-sm">
+                <p className="font-semibold text-gray-900 mb-2">How to get your API key:</p>
+                <ol className="list-decimal list-inside space-y-1 text-gray-700">
+                  <li>Go to <a href="https://cloud.digitalocean.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">DigitalOcean Control Panel</a></li>
+                  <li>Navigate to <strong>AI Agents</strong></li>
+                  <li>Select your agent</li>
+                  <li>Go to <strong>API Keys</strong> section</li>
+                  <li>Copy your API key and paste it below</li>
+                </ol>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">API Key *</label>
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="Paste your API key here..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSaveApiKey}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Save API Key
+                </button>
+                <button
+                  onClick={() => setShowApiKeyInput(false)}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* AI Risk Analysis Section */}
         <Card padding="lg" className="border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50">
           <CardHeader>
@@ -484,6 +563,14 @@ export const DashboardPage = () => {
                 <CardTitle>AI-Powered Risk Analysis</CardTitle>
                 <CardDescription>
                   Generate a comprehensive 12-hour migraine risk assessment based on your recent data and patterns
+                  {apiKey && (
+                    <button
+                      onClick={() => setShowApiKeyInput(true)}
+                      className="ml-2 text-xs text-blue-600 hover:underline"
+                    >
+                      (Change API Key)
+                    </button>
+                  )}
                 </CardDescription>
               </div>
             </div>

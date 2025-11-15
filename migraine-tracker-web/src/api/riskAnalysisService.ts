@@ -97,25 +97,66 @@ export interface AIAnalysisResponse {
  * Call DigitalOcean AI agent with the prompt
  */
 export const callAIAgent = async (prompt: string): Promise<AIAnalysisResponse> => {
-  const AI_AGENT_URL = 'https://lerrqtyr45trfkm5hhmzek2y.agents.do-ai.run';
+  const AI_AGENT_URL = 'https://lerrqtyr45trfkm5hhmzek2y.agents.do-ai.run/api/v1/chat/completions';
+  
+  // Get AI agent API key from environment or localStorage
+  // Note: Even "public" agents require an API key for programmatic API access
+  // The embedded widget works differently (loaded from agent's domain)
+  const apiKey = import.meta.env.VITE_DO_AI_AGENT_API_KEY || 
+                 localStorage.getItem('do_ai_agent_api_key');
+  
+  if (!apiKey) {
+    throw new Error('AI Agent API key required. Please configure your API key in the Dashboard. Get it from: DigitalOcean Control Panel → AI Agents → Your Agent → API Keys');
+  }
   
   try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Add authorization header if API key is provided
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+    
     const response = await fetch(AI_AGENT_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ prompt }),
+      headers,
+      body: JSON.stringify({
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.7
+      }),
     });
 
     if (!response.ok) {
-      throw new Error(`AI Agent returned ${response.status}`);
+      const errorText = await response.text();
+      console.error('AI Agent error response:', errorText);
+      throw new Error(`AI Agent returned ${response.status}: ${errorText}`);
     }
 
-    const data = await response.text();
+    const data = await response.json();
+    console.log('AI Agent response:', data);
+    
+    // Extract the assistant's message content
+    // DigitalOcean AI agents return OpenAI-compatible format
+    let aiText = '';
+    if (data.choices && data.choices.length > 0 && data.choices[0].message) {
+      aiText = data.choices[0].message.content;
+    } else if (data.content) {
+      aiText = data.content;
+    } else if (typeof data === 'string') {
+      aiText = data;
+    } else {
+      aiText = JSON.stringify(data);
+    }
     
     // Parse the AI response to extract structured data
-    return parseAIResponse(data);
+    return parseAIResponse(aiText);
   } catch (error) {
     console.error('Error calling AI agent:', error);
     throw error;

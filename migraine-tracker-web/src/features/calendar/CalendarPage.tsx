@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { getCalendarData, markMigraineDay, removeMigraineDay, type CalendarDay } from '../../api/calendarService';
+import { useSearchParams } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { getCalendarData, markMigraineDay, removeMigraineDay, removeAllMigraineDays, type CalendarDay } from '../../api/calendarService';
 import { processSummaryIndicators } from '../../api/summaryService';
 import {
   Layout,
@@ -19,8 +20,41 @@ import {
 // ============================================
 
 export const CalendarPage = () => {
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [searchParams] = useSearchParams();
+  const dateParam = searchParams.get('date');
+  
+  // Initialize with the date from URL parameter or current date
+  const getInitialDate = () => {
+    if (dateParam) {
+      try {
+        const parsedDate = new Date(dateParam);
+        // Validate the date
+        if (!isNaN(parsedDate.getTime())) {
+          return parsedDate;
+        }
+      } catch (e) {
+        console.error('Invalid date parameter:', dateParam);
+      }
+    }
+    return new Date();
+  };
+  
+  const [currentDate, setCurrentDate] = useState(getInitialDate);
   const queryClient = useQueryClient();
+  
+  // Update current date when URL parameter changes
+  useEffect(() => {
+    if (dateParam) {
+      try {
+        const parsedDate = new Date(dateParam);
+        if (!isNaN(parsedDate.getTime())) {
+          setCurrentDate(parsedDate);
+        }
+      } catch (e) {
+        console.error('Invalid date parameter:', dateParam);
+      }
+    }
+  }, [dateParam]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth() + 1; // 1-12
@@ -84,6 +118,28 @@ export const CalendarPage = () => {
       queryClient.invalidateQueries({ queryKey: ['calendar', year, month] });
     },
   });
+
+  // Remove all migraine days mutation
+  const removeAllMutation = useMutation({
+    mutationFn: () => removeAllMigraineDays(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar'] });
+    },
+  });
+
+  // Handle deselect all
+  const handleDeselectAll = () => {
+    const totalMigraineDays = calendarData?.data?.data?.totalMigraineDays || calendarData?.data?.totalMigraineDays || 0;
+    
+    if (totalMigraineDays === 0) {
+      alert('No migraine days to deselect.');
+      return;
+    }
+
+    if (window.confirm(`Are you sure you want to deselect all ${totalMigraineDays} migraine day markers? This action cannot be undone.`)) {
+      removeAllMutation.mutate();
+    }
+  };
 
   // Navigate months
   const navigateMonth = (direction: 'prev' | 'next') => {
@@ -285,42 +341,59 @@ export const CalendarPage = () => {
         {/* Calendar */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <CalendarIcon className="w-5 h-5" />
-                  {getMonthName()}
-                </CardTitle>
-                <CardDescription>
-                  Click on days with data to mark or unmark them as migraine days
-                </CardDescription>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <CalendarIcon className="w-5 h-5" />
+                    {getMonthName()}
+                  </CardTitle>
+                  <CardDescription>
+                    Click on days with data to mark or unmark them as migraine days
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigateMonth('prev')}
+                    disabled={isLoading}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentDate(new Date())}
+                    disabled={isLoading}
+                  >
+                    Today
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigateMonth('next')}
+                    disabled={isLoading}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigateMonth('prev')}
-                  disabled={isLoading}
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentDate(new Date())}
-                  disabled={isLoading}
-                >
-                  Today
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigateMonth('next')}
-                  disabled={isLoading}
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </div>
+              
+              {/* Deselect All Button */}
+              {((calendarData?.data?.data?.totalMigraineDays || calendarData?.data?.totalMigraineDays || 0) > 0) && (
+                <div className="flex justify-end">
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={handleDeselectAll}
+                    disabled={removeAllMutation.isPending}
+                  >
+                    <XCircle className="w-4 h-4 mr-2" />
+                    {removeAllMutation.isPending ? 'Deselecting...' : 'Deselect All Migraine Days'}
+                  </Button>
+                </div>
+              )}
             </div>
           </CardHeader>
 

@@ -80,3 +80,10 @@ export const removeMigraineDay = async (date: string): Promise<ApiResponse<{ mes
   return api.delete<{ message: string }>(`/calendar/migraine-day/${date}`);
 };
 
+/**
+ * Remove all migraine day markers for the current user
+ */
+export const removeAllMigraineDays = async (): Promise<ApiResponse<{ message: string; data: { deletedCount: number } }>> => {
+  return api.delete<{ message: string; data: { deletedCount: number } }>('/calendar/migraine-days/all');
+};
+

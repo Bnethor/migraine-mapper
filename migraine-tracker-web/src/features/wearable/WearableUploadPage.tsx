@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Upload, FileText, CheckCircle2, AlertCircle, X, Loader2, Clock, Trash2, History } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Upload, FileText, CheckCircle2, AlertCircle, X, Loader2, Clock, Trash2, History, Calendar } from 'lucide-react';
 import { uploadWearableCSV, getUploadSessions, deleteUploadSession, deleteAllUploadSessions, cleanupOrphanedData, type UploadResponse, type UploadSession } from '../../api/wearableService';
 import {
   Layout,
@@ -28,6 +29,7 @@ export const WearableUploadPage = () => {
   const progressInterval = useRef<NodeJS.Timeout | null>(null);
   const processingInterval = useRef<NodeJS.Timeout | null>(null);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   // Fetch upload history
   const { data: uploadsData, refetch: refetchUploads } = useQuery({
@@ -234,6 +236,17 @@ export const WearableUploadPage = () => {
     const minutes = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `~${minutes}m ${secs}s remaining`;
+  };
+  
+  // Navigate to calendar with earliest date
+  const navigateToCalendar = () => {
+    if (uploadResult?.earliestDate) {
+      // Navigate to calendar with the earliest date as a URL parameter
+      navigate(`/calendar?date=${uploadResult.earliestDate}`);
+    } else {
+      // Navigate to current month if no earliest date
+      navigate('/calendar');
+    }
   };
 
   return (
@@ -491,10 +504,36 @@ export const WearableUploadPage = () => {
                   </div>
                 )}
 
-                <div className="flex justify-end">
-                  <Button onClick={handleReset} variant="outline">
-                    Upload Another File
-                  </Button>
+                <div className="flex justify-between items-center gap-3">
+                  {uploadResult.earliestDate && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Calendar className="w-4 h-4" />
+                      <span>
+                        Data starts from:{' '}
+                        <span className="font-medium text-gray-900">
+                          {new Date(uploadResult.earliestDate).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </span>
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex gap-3 ml-auto">
+                    {uploadResult.earliestDate && (
+                      <Button 
+                        onClick={navigateToCalendar}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        <Calendar className="w-4 h-4 mr-2" />
+                        View in Calendar
+                      </Button>
+                    )}
+                    <Button onClick={handleReset} variant="outline">
+                      Upload Another File
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}

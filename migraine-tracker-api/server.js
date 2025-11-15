@@ -1110,6 +1110,17 @@ app.post('/api/wearable/upload', authenticate, upload.single('file'), async (req
     let updatedCount = 0;
     let skippedCount = 0;
     const errors = [];
+    
+    // Track earliest date in the uploaded data
+    let earliestDate = null;
+    for (const row of parsedData.data) {
+      if (row.timestamp) {
+        const currentTimestamp = new Date(row.timestamp);
+        if (!earliestDate || currentTimestamp < earliestDate) {
+          earliestDate = currentTimestamp;
+        }
+      }
+    }
 
     for (const row of parsedData.data) {
       try {
@@ -1236,7 +1247,8 @@ app.post('/api/wearable/upload', authenticate, upload.single('file'), async (req
         source,
         fieldMapping: parsedData.fieldMapping,
         unrecognizedFields: parsedData.unrecognizedFields,
-        errorDetails: errors.length > 0 ? errors : undefined
+        errorDetails: errors.length > 0 ? errors : undefined,
+        earliestDate: earliestDate ? earliestDate.toISOString() : null
       },
       message: `Successfully processed ${insertedCount + updatedCount} of ${parsedData.data.length} rows (${insertedCount} new, ${updatedCount} updated, ${skippedCount} skipped)`
     });
@@ -1784,6 +1796,30 @@ app.delete('/api/calendar/migraine-day/:date', authenticate, async (req, res) =>
     res.status(500).json({
       success: false,
       message: 'Error removing migraine day marker'
+    });
+  }
+});
+
+// Remove all migraine day markers for user
+app.delete('/api/calendar/migraine-days/all', authenticate, async (req, res) => {
+  try {
+    const result = await query(
+      'DELETE FROM migraine_day_markers WHERE user_id = $1 RETURNING id',
+      [req.userId]
+    );
+    
+    res.json({
+      success: true,
+      message: 'All migraine day markers removed successfully',
+      data: {
+        deletedCount: result.rowCount || 0
+      }
+    });
+  } catch (error) {
+    console.error('Remove all migraine days error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error removing all migraine day markers'
     });
   }
 });

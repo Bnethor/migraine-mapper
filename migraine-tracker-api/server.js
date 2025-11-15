@@ -7,6 +7,7 @@ import { query, closePool } from './db/database.js';
 import { parseWearableCSV, detectSource } from './utils/csvParser.js';
 import { processSummaryIndicators } from './utils/summaryProcessor.js';
 import { analyzeMigraineCorrelations } from './utils/migraineCorrelationAnalyzer.js';
+import { buildRiskAnalysisPrompt, buildDataSummary } from './utils/promptBuilder.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1065,6 +1066,12 @@ app.post('/api/wearable/upload', authenticate, upload.single('file'), async (req
     let parsedData;
     try {
       parsedData = await parseWearableCSV(req.file.buffer);
+      console.log(`📊 CSV parsed: ${parsedData.data.length} rows`);
+      
+      // Log sample of timestamps to verify hourly data
+      if (parsedData.data.length > 0) {
+        console.log('Sample timestamps:', parsedData.data.slice(0, 5).map(r => r.timestamp?.toISOString()).filter(Boolean));
+      }
     } catch (error) {
       console.error('CSV parsing error:', error);
       return res.status(400).json({
@@ -1223,6 +1230,8 @@ app.post('/api/wearable/upload', authenticate, upload.single('file'), async (req
        WHERE id = $6`,
       [insertedCount, updatedCount, skippedCount, errors.length, status, uploadSessionId]
     );
+
+    console.log(`✅ Upload complete: ${insertedCount} inserted, ${updatedCount} updated, ${skippedCount} skipped, ${errors.length} errors (total: ${parsedData.data.length})`);
 
     res.status(201).json({
       success: true,
@@ -1964,6 +1973,274 @@ app.get('/api/risk-prediction/data', authenticate, async (req, res) => {
   }
 });
 
+// Build AI prompt for migraine risk analysis (with optional simulated data)
+app.post('/api/risk-prediction/prompt', authenticate, async (req, res) => {
+  try {
+    const { simulatedData } = req.body;
+    
+    // Get last 24 hours of wearable data (or use simulated)
+    const now = new Date();
+    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    let wearableData = [];
+    
+    if (simulatedData) {
+      // Use simulated data - create 24 hourly entries with the simulated values
+      for (let i = 0; i < 24; i++) {
+        const timestamp = new Date(now.getTime() - (23 - i) * 60 * 60 * 1000);
+        wearableData.push({
+          timestamp: timestamp.toISOString(),
+          stress: simulatedData.stress || null,
+          recovery: simulatedData.recovery || null,
+          heartRate: simulatedData.heartRate || null,
+          hrv: simulatedData.hrv || null,
+          sleepEfficiency: simulatedData.sleepEfficiency || null,
+          sleepHeartRate: null,
+          skinTemperature: simulatedData.skinTemp || null,
+          restlessPeriods: null
+        });
+      }
+    } else {
+      // Get actual wearable data from database
+      const wearableDataResult = await query(
+        `SELECT timestamp, stress_value, recovery_value, heart_rate, hrv,
+                sleep_efficiency, sleep_heart_rate, skin_temperature, restless_periods
+         FROM wearable_data
+         WHERE user_id = $1 
+           AND timestamp >= $2 
+           AND timestamp <= $3
+         ORDER BY timestamp`,
+        [req.userId, twentyFourHoursAgo, now]
+      );
+
+      wearableData = wearableDataResult.rows.map(row => ({
+        timestamp: row.timestamp.toISOString(),
+        stress: row.stress_value ? parseFloat(row.stress_value) : null,
+        recovery: row.recovery_value ? parseFloat(row.recovery_value) : null,
+        heartRate: row.heart_rate ? parseFloat(row.heart_rate) : null,
+        hrv: row.hrv ? parseFloat(row.hrv) : null,
+        sleepEfficiency: row.sleep_efficiency ? parseFloat(row.sleep_efficiency) : null,
+        sleepHeartRate: row.sleep_heart_rate ? parseFloat(row.sleep_heart_rate) : null,
+        skinTemperature: row.skin_temperature ? parseFloat(row.skin_temperature) : null,
+        restlessPeriods: row.restless_periods ? parseFloat(row.restless_periods) : null
+      }));
+    }
+
+    // Get correlation patterns
+    const correlationsResult = await query(
+      `SELECT pattern_type, pattern_name, pattern_definition, threshold_value,
+              correlation_strength, confidence_score, 
+              avg_value_on_migraine_days, avg_value_on_normal_days,
+              migraine_days_count, total_days_analyzed
+       FROM migraine_correlations
+       WHERE user_id = $1
+       ORDER BY ABS(correlation_strength) DESC`,
+      [req.userId]
+    );
+
+    // Get user profile
+    const profileResult = await query(
+      `SELECT typical_duration, monthly_frequency, diagnosed_type,
+              experiences_nausea, experiences_vomit, experiences_photophobia, experiences_phonophobia,
+              typical_visual_symptoms, typical_sensory_symptoms, family_history
+       FROM user_profiles
+       WHERE user_id = $1`,
+      [req.userId]
+    );
+
+    // Format correlation patterns
+    const patterns = correlationsResult.rows.map(row => ({
+      patternType: row.pattern_type,
+      patternName: row.pattern_name,
+      patternDefinition: row.pattern_definition,
+      thresholdValue: row.threshold_value ? parseFloat(row.threshold_value) : null,
+      correlationStrength: row.correlation_strength ? parseFloat(row.correlation_strength) : null,
+      confidenceScore: row.confidence_score ? parseFloat(row.confidence_score) : null,
+      avgValueOnMigraineDays: row.avg_value_on_migraine_days ? parseFloat(row.avg_value_on_migraine_days) : null,
+      avgValueOnNormalDays: row.avg_value_on_normal_days ? parseFloat(row.avg_value_on_normal_days) : null,
+      migraineDaysCount: parseInt(row.migraine_days_count) || 0,
+      totalDaysAnalyzed: parseInt(row.total_days_analyzed) || 0
+    }));
+
+    // Format user profile
+    const profile = profileResult.rows[0] ? {
+      typicalDuration: profileResult.rows[0].typical_duration,
+      monthlyFrequency: profileResult.rows[0].monthly_frequency,
+      diagnosedType: profileResult.rows[0].diagnosed_type,
+      experiencesNausea: profileResult.rows[0].experiences_nausea,
+      experiencesVomit: profileResult.rows[0].experiences_vomit,
+      experiencesPhotophobia: profileResult.rows[0].experiences_photophobia,
+      experiencesPhonophobia: profileResult.rows[0].experiences_phonophobia,
+      typicalVisualSymptoms: profileResult.rows[0].typical_visual_symptoms,
+      typicalSensorySymptoms: profileResult.rows[0].typical_sensory_symptoms,
+      familyHistory: profileResult.rows[0].family_history
+    } : null;
+
+    // Build the prompt
+    const prompt = buildRiskAnalysisPrompt({
+      wearableData,
+      patterns,
+      profile,
+      isSimulated: !!simulatedData
+    });
+
+    // Build summary for quick reference
+    const summary = buildDataSummary({
+      wearableData,
+      patterns,
+      profile
+    });
+
+    res.json({
+      success: true,
+      data: {
+        prompt,
+        summary,
+        metadata: {
+          generatedAt: new Date().toISOString(),
+          dataPointsCount: wearableData.length,
+          patternsCount: patterns.length,
+          hasProfile: !!profile,
+          usingSimulatedData: !!simulatedData,
+          timeRange: {
+            start: twentyFourHoursAgo.toISOString(),
+            end: now.toISOString()
+          }
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Build risk prediction prompt error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error building risk prediction prompt',
+      error: error.message
+    });
+  }
+});
+
+// Build AI prompt for migraine risk analysis (GET - fallback)
+app.get('/api/risk-prediction/prompt', authenticate, async (req, res) => {
+  try {
+    // Get last 24 hours of wearable data
+    const now = new Date();
+    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    const wearableDataResult = await query(
+      `SELECT timestamp, stress_value, recovery_value, heart_rate, hrv,
+              sleep_efficiency, sleep_heart_rate, skin_temperature, restless_periods
+       FROM wearable_data
+       WHERE user_id = $1 
+         AND timestamp >= $2 
+         AND timestamp <= $3
+       ORDER BY timestamp`,
+      [req.userId, twentyFourHoursAgo, now]
+    );
+
+    // Get correlation patterns
+    const correlationsResult = await query(
+      `SELECT pattern_type, pattern_name, pattern_definition, threshold_value,
+              correlation_strength, confidence_score, 
+              avg_value_on_migraine_days, avg_value_on_normal_days,
+              migraine_days_count, total_days_analyzed
+       FROM migraine_correlations
+       WHERE user_id = $1
+       ORDER BY ABS(correlation_strength) DESC`,
+      [req.userId]
+    );
+
+    // Get user profile
+    const profileResult = await query(
+      `SELECT typical_duration, monthly_frequency, diagnosed_type,
+              experiences_nausea, experiences_vomit, experiences_photophobia, experiences_phonophobia,
+              typical_visual_symptoms, typical_sensory_symptoms, family_history
+       FROM user_profiles
+       WHERE user_id = $1`,
+      [req.userId]
+    );
+
+    // Format wearable data
+    const wearableData = wearableDataResult.rows.map(row => ({
+      timestamp: row.timestamp.toISOString(),
+      stress: row.stress_value ? parseFloat(row.stress_value) : null,
+      recovery: row.recovery_value ? parseFloat(row.recovery_value) : null,
+      heartRate: row.heart_rate ? parseFloat(row.heart_rate) : null,
+      hrv: row.hrv ? parseFloat(row.hrv) : null,
+      sleepEfficiency: row.sleep_efficiency ? parseFloat(row.sleep_efficiency) : null,
+      sleepHeartRate: row.sleep_heart_rate ? parseFloat(row.sleep_heart_rate) : null,
+      skinTemperature: row.skin_temperature ? parseFloat(row.skin_temperature) : null,
+      restlessPeriods: row.restless_periods ? parseFloat(row.restless_periods) : null
+    }));
+
+    // Format correlation patterns
+    const patterns = correlationsResult.rows.map(row => ({
+      patternType: row.pattern_type,
+      patternName: row.pattern_name,
+      patternDefinition: row.pattern_definition,
+      thresholdValue: row.threshold_value ? parseFloat(row.threshold_value) : null,
+      correlationStrength: row.correlation_strength ? parseFloat(row.correlation_strength) : null,
+      confidenceScore: row.confidence_score ? parseFloat(row.confidence_score) : null,
+      avgValueOnMigraineDays: row.avg_value_on_migraine_days ? parseFloat(row.avg_value_on_migraine_days) : null,
+      avgValueOnNormalDays: row.avg_value_on_normal_days ? parseFloat(row.avg_value_on_normal_days) : null,
+      migraineDaysCount: parseInt(row.migraine_days_count) || 0,
+      totalDaysAnalyzed: parseInt(row.total_days_analyzed) || 0
+    }));
+
+    // Format user profile
+    const profile = profileResult.rows[0] ? {
+      typicalDuration: profileResult.rows[0].typical_duration,
+      monthlyFrequency: profileResult.rows[0].monthly_frequency,
+      diagnosedType: profileResult.rows[0].diagnosed_type,
+      experiencesNausea: profileResult.rows[0].experiences_nausea,
+      experiencesVomit: profileResult.rows[0].experiences_vomit,
+      experiencesPhotophobia: profileResult.rows[0].experiences_photophobia,
+      experiencesPhonophobia: profileResult.rows[0].experiences_phonophobia,
+      typicalVisualSymptoms: profileResult.rows[0].typical_visual_symptoms,
+      typicalSensorySymptoms: profileResult.rows[0].typical_sensory_symptoms,
+      familyHistory: profileResult.rows[0].family_history
+    } : null;
+
+    // Build the prompt
+    const prompt = buildRiskAnalysisPrompt({
+      wearableData,
+      patterns,
+      profile
+    });
+
+    // Build summary for quick reference
+    const summary = buildDataSummary({
+      wearableData,
+      patterns,
+      profile
+    });
+
+    res.json({
+      success: true,
+      data: {
+        prompt,
+        summary,
+        metadata: {
+          generatedAt: new Date().toISOString(),
+          dataPointsCount: wearableData.length,
+          patternsCount: patterns.length,
+          hasProfile: !!profile,
+          timeRange: {
+            start: twentyFourHoursAgo.toISOString(),
+            end: now.toISOString()
+          }
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Build risk prediction prompt error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error building risk prediction prompt',
+      error: error.message
+    });
+  }
+});
+
 // Get summary indicators for a date range
 app.get('/api/summary', authenticate, async (req, res) => {
   try {
@@ -2092,6 +2369,17 @@ app.get('/api/wearable/statistics', authenticate, async (req, res) => {
     const result = await query(queryText, queryParams);
     const stats = result.rows[0];
 
+    // Get hourly breakdown for sample day
+    const hourlyResult = await query(
+      `SELECT DATE(timestamp) as date, COUNT(*) as entries_per_day
+       FROM wearable_data
+       WHERE user_id = $1
+       GROUP BY DATE(timestamp)
+       ORDER BY date DESC
+       LIMIT 10`,
+      [req.userId]
+    );
+
     res.json({
       success: true,
       data: {
@@ -2108,7 +2396,11 @@ app.get('/api/wearable/statistics', authenticate, async (req, res) => {
         dateRange: {
           earliest: stats.earliest_date ? stats.earliest_date.toISOString() : null,
           latest: stats.latest_date ? stats.latest_date.toISOString() : null
-        }
+        },
+        entriesPerDay: hourlyResult.rows.map(r => ({
+          date: typeof r.date === 'string' ? r.date : r.date.toISOString().split('T')[0],
+          count: parseInt(r.entries_per_day)
+        }))
       }
     });
   } catch (error) {
@@ -2215,5 +2507,7 @@ app.listen(PORT, () => {
   console.log(`   GET    /api/summary`);
   console.log(`   GET    /api/summary/correlations`);
   console.log(`   GET    /api/risk-prediction/data`);
+  console.log(`   POST   /api/risk-prediction/prompt (with simulated data)`);
+  console.log(`   GET    /api/risk-prediction/prompt`);
   console.log(`\n🔐 Demo user: demo@example.com / demo123`);
 });

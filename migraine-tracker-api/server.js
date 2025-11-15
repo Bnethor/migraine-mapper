@@ -1,51 +1,44 @@
 import express from 'express';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
-import { v4 as uuidv4 } from 'uuid';
+import 'dotenv/config';
+import { query, closePool } from './db/database.js';
 
 const app = express();
-const PORT = 3000;
-const JWT_SECRET = 'your-secret-key-change-in-production';
+const PORT = process.env.PORT || 3000;
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
 // ============================================
-// IN-MEMORY DATA STORAGE
-// ============================================
-
-// Users database (email -> user object)
-const users = new Map();
-
-// Migraine entries database (id -> entry object)
-const migraines = new Map();
-
-// User-to-migraines mapping (userId -> [migrainIds])
-const userMigraines = new Map();
-
-// ============================================
-// SEED DATA - Demo User
-// ============================================
-
-// Create demo user for testing
-const demoUserId = 'demo-user-123';
-const demoUser = {
-  id: demoUserId,
-  email: 'demo@example.com',
-  name: 'Demo User',
-  password: 'demo123',
-  createdAt: new Date().toISOString()
-};
-
-users.set('demo@example.com', demoUser);
-userMigraines.set(demoUserId, []);
-
-console.log('✅ Demo user created: demo@example.com / demo123');
-
-// ============================================
 // HELPER FUNCTIONS
 // ============================================
+
+// Transform database entry to API format
+const transformEntryForAPI = (dbEntry) => {
+  if (!dbEntry) return null;
+  
+  const startTime = new Date(dbEntry.start_time);
+  const endTime = dbEntry.end_time ? new Date(dbEntry.end_time) : null;
+  
+  return {
+    id: dbEntry.id,
+    userId: dbEntry.user_id,
+    date: startTime.toISOString().split('T')[0], // YYYY-MM-DD
+    startTime: startTime.toISOString().split('T')[1].substring(0, 5), // HH:MM
+    endTime: endTime ? endTime.toISOString().split('T')[1].substring(0, 5) : undefined,
+    intensity: dbEntry.intensity,
+    location: dbEntry.location || undefined,
+    triggers: dbEntry.triggers ? dbEntry.triggers.split(',').map(t => t.trim()).filter(Boolean) : [],
+    symptoms: dbEntry.symptoms ? dbEntry.symptoms.split(',').map(s => s.trim()).filter(Boolean) : [],
+    medication: dbEntry.medication || undefined,
+    notes: dbEntry.notes || undefined,
+    createdAt: new Date(dbEntry.created_at).toISOString(),
+    updatedAt: new Date(dbEntry.updated_at).toISOString()
+  };
+};
 
 // Generate JWT token
 const generateToken = (userId) => {
@@ -86,95 +79,129 @@ const authenticate = (req, res, next) => {
   next();
 };
 
-// Get user's migraine entries
-const getUserMigraines = (userId) => {
-  const migraineIds = userMigraines.get(userId) || [];
-  return migraineIds.map(id => migraines.get(id)).filter(Boolean);
-};
-
 // ============================================
 // AUTHENTICATION ROUTES
 // ============================================
 
 // Register new user
-app.post('/api/auth/register', (req, res) => {
-  const { email, password, name } = req.body;
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { email, password, name } = req.body;
 
-  // Validation
-  if (!email || !password) {
-    return res.status(400).json({
-      success: false,
-      message: 'Email and password are required'
-    });
-  }
-
-  // Check if user already exists
-  if (users.has(email)) {
-    return res.status(400).json({
-      success: false,
-      message: 'User already exists'
-    });
-  }
-
-  // Create new user
-  const userId = uuidv4();
-  const user = {
-    id: userId,
-    email,
-    name: name || email.split('@')[0],
-    createdAt: new Date().toISOString()
-  };
-
-  users.set(email, { ...user, password });
-  userMigraines.set(userId, []);
-
-  // Generate token
-  const token = generateToken(userId);
-
-  res.status(201).json({
-    success: true,
-    data: {
-      user,
-      token
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and password are required'
+      });
     }
-  });
+
+    // Check if user already exists
+    const existingUser = await query(
+      'SELECT id FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'User already exists'
+      });
+    }
+
+    // Create new user
+    // Note: In production, use bcrypt to hash passwords
+    const result = await query(
+      `INSERT INTO users (email, name, password)
+       VALUES ($1, $2, $3)
+       RETURNING id, email, name, created_at`,
+      [email, name || email.split('@')[0], password]
+    );
+
+    const user = result.rows[0];
+
+    // Generate token
+    const token = generateToken(user.id);
+
+    res.status(201).json({
+      success: true,
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          createdAt: user.created_at
+        },
+        token
+      }
+    });
+  } catch (error) {
+    console.error('Register error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating user'
+    });
+  }
 });
 
 // Login user
-app.post('/api/auth/login', (req, res) => {
-  const { email, password } = req.body;
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
 
-  // Validation
-  if (!email || !password) {
-    return res.status(400).json({
-      success: false,
-      message: 'Email and password are required'
-    });
-  }
-
-  // Find user
-  const user = users.get(email);
-
-  if (!user || user.password !== password) {
-    return res.status(401).json({
-      success: false,
-      message: 'Invalid credentials'
-    });
-  }
-
-  // Generate token
-  const token = generateToken(user.id);
-
-  // Return user without password
-  const { password: _, ...userWithoutPassword } = user;
-
-  res.json({
-    success: true,
-    data: {
-      user: userWithoutPassword,
-      token
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and password are required'
+      });
     }
-  });
+
+    // Find user
+    const result = await query(
+      'SELECT id, email, name, password, created_at FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
+      });
+    }
+
+    const user = result.rows[0];
+
+    // Check password (in production, use bcrypt.compare)
+    if (user.password !== password) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
+      });
+    }
+
+    // Generate token
+    const token = generateToken(user.id);
+
+    res.json({
+      success: true,
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          createdAt: user.created_at
+        },
+        token
+      }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error during login'
+    });
+  }
 });
 
 // Logout user (client-side only, token invalidation would require a blacklist)
@@ -186,305 +213,480 @@ app.post('/api/auth/logout', authenticate, (req, res) => {
 });
 
 // Get current user
-app.get('/api/auth/me', authenticate, (req, res) => {
-  const user = Array.from(users.values()).find(u => u.id === req.userId);
+app.get('/api/auth/me', authenticate, async (req, res) => {
+  try {
+    const result = await query(
+      'SELECT id, email, name, created_at FROM users WHERE id = $1',
+      [req.userId]
+    );
 
-  if (!user) {
-    return res.status(404).json({
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const user = result.rows[0];
+
+    res.json({
+      success: true,
+      data: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        createdAt: user.created_at
+      }
+    });
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({
       success: false,
-      message: 'User not found'
+      message: 'Error fetching user'
     });
   }
-
-  const { password: _, ...userWithoutPassword } = user;
-
-  res.json({
-    success: true,
-    data: userWithoutPassword
-  });
 });
 
 // ============================================
 // MIGRAINE ROUTES
 // ============================================
-// IMPORTANT: Specific routes (statistics, recent) must come BEFORE parameterized routes (:id)
 
 // Get dashboard statistics
-app.get('/api/migraine/statistics', authenticate, (req, res) => {
-  const userEntries = getUserMigraines(req.userId);
+app.get('/api/migraine/statistics', authenticate, async (req, res) => {
+  try {
+    // Get total entries and average intensity
+    const statsResult = await query(
+      `SELECT 
+         COUNT(*) as total_entries,
+         COALESCE(AVG(intensity), 0) as average_intensity
+       FROM migraine_entries
+       WHERE user_id = $1`,
+      [req.userId]
+    );
 
-  if (userEntries.length === 0) {
-    return res.json({
-      success: true,
-      data: {
-        totalEntries: 0,
-        averageIntensity: 0,
-        topTriggers: [],
-        monthlyFrequency: []
+    const { total_entries, average_intensity } = statsResult.rows[0];
+
+    // Get top triggers
+    const triggersResult = await query(
+      `SELECT triggers
+       FROM migraine_entries
+       WHERE user_id = $1 AND triggers IS NOT NULL AND triggers != ''`,
+      [req.userId]
+    );
+
+    const triggerCounts = {};
+    triggersResult.rows.forEach(row => {
+      if (row.triggers) {
+        row.triggers.split(',').forEach(trigger => {
+          const trimmed = trigger.trim();
+          if (trimmed) {
+            triggerCounts[trimmed] = (triggerCounts[trimmed] || 0) + 1;
+          }
+        });
       }
     });
-  }
 
-  // Calculate statistics
-  const totalEntries = userEntries.length;
-  const averageIntensity = userEntries.reduce((sum, entry) => sum + entry.intensity, 0) / totalEntries;
+    const topTriggers = Object.entries(triggerCounts)
+      .map(([trigger, count]) => ({ trigger, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
 
-  // Top triggers
-  const triggerCounts = {};
-  userEntries.forEach(entry => {
-    if (entry.triggers) {
-      entry.triggers.split(',').forEach(trigger => {
-        const trimmed = trigger.trim();
-        if (trimmed) {
-          triggerCounts[trimmed] = (triggerCounts[trimmed] || 0) + 1;
-        }
+    // Get monthly frequency (last 6 months)
+    const monthlyResult = await query(
+      `SELECT 
+         TO_CHAR(start_time, 'Mon YYYY') as month,
+         COUNT(*) as count
+       FROM migraine_entries
+       WHERE user_id = $1
+         AND start_time >= NOW() - INTERVAL '6 months'
+       GROUP BY TO_CHAR(start_time, 'YYYY-MM'), TO_CHAR(start_time, 'Mon YYYY')
+       ORDER BY TO_CHAR(start_time, 'YYYY-MM')`,
+      [req.userId]
+    );
+
+    // Fill in missing months with zero counts
+    const monthlyFrequency = [];
+    const now = new Date();
+    const monthMap = new Map(monthlyResult.rows.map(row => [row.month, parseInt(row.count)]));
+
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthStr = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+      monthlyFrequency.push({
+        month: monthStr,
+        count: monthMap.get(monthStr) || 0
       });
     }
-  });
 
-  const topTriggers = Object.entries(triggerCounts)
-    .map(([trigger, count]) => ({ trigger, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5);
-
-  // Monthly frequency (last 6 months)
-  const monthlyFrequency = [];
-  const now = new Date();
-  for (let i = 5; i >= 0; i--) {
-    const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const monthStr = month.toLocaleString('default', { month: 'short', year: 'numeric' });
-    const count = userEntries.filter(entry => {
-      const entryDate = new Date(entry.startTime);
-      return entryDate.getMonth() === month.getMonth() && 
-             entryDate.getFullYear() === month.getFullYear();
-    }).length;
-    
-    monthlyFrequency.push({ month: monthStr, count });
+    res.json({
+      success: true,
+      data: {
+        totalEntries: parseInt(total_entries),
+        averageIntensity: Math.round(parseFloat(average_intensity) * 10) / 10,
+        mostCommonTriggers: topTriggers,
+        frequencyByMonth: monthlyFrequency,
+        intensityTrend: [] // Not implemented yet but expected by frontend
+      }
+    });
+  } catch (error) {
+    console.error('Statistics error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching statistics'
+    });
   }
-
-  res.json({
-    success: true,
-    data: {
-      totalEntries,
-      averageIntensity: Math.round(averageIntensity * 10) / 10,
-      topTriggers,
-      monthlyFrequency
-    }
-  });
 });
 
 // Get recent entries
-app.get('/api/migraine/recent', authenticate, (req, res) => {
-  const limit = parseInt(req.query.limit) || 5;
-  const userEntries = getUserMigraines(req.userId);
+app.get('/api/migraine/recent', authenticate, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 5;
 
-  // Sort by date and get recent ones
-  const recentEntries = userEntries
-    .sort((a, b) => new Date(b.startTime) - new Date(a.startTime))
-    .slice(0, limit);
+    const result = await query(
+      `SELECT id, user_id, start_time, end_time, intensity, location,
+              triggers, symptoms, medication, notes, created_at, updated_at
+       FROM migraine_entries
+       WHERE user_id = $1
+       ORDER BY start_time DESC
+       LIMIT $2`,
+      [req.userId, limit]
+    );
 
-  res.json({
-    success: true,
-    data: recentEntries
-  });
+    const entries = result.rows.map(row => transformEntryForAPI(row));
+
+    res.json({
+      success: true,
+      data: entries
+    });
+  } catch (error) {
+    console.error('Recent entries error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching recent entries'
+    });
+  }
 });
 
-// Get all migraine entries (with pagination)
-app.get('/api/migraine', authenticate, (req, res) => {
-  const { page = '1', limit = '10', search = '' } = req.query;
-  
-  let userEntries = getUserMigraines(req.userId);
+// Get all migraine entries (with pagination and search)
+app.get('/api/migraine', authenticate, async (req, res) => {
+  try {
+    const { page = '1', limit = '10', search = '' } = req.query;
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const offset = (pageNum - 1) * limitNum;
 
-  // Filter by search if provided
-  if (search) {
-    const searchLower = search.toLowerCase();
-    userEntries = userEntries.filter(entry => 
-      entry.triggers?.toLowerCase().includes(searchLower) ||
-      entry.symptoms?.toLowerCase().includes(searchLower) ||
-      entry.location?.toLowerCase().includes(searchLower)
-    );
-  }
+    let queryText = `
+      SELECT id, user_id, start_time, end_time, intensity, location,
+             triggers, symptoms, medication, notes, created_at, updated_at
+      FROM migraine_entries
+      WHERE user_id = $1
+    `;
+    const queryParams = [req.userId];
 
-  // Sort by date (newest first)
-  userEntries.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
-
-  // Pagination
-  const pageNum = parseInt(page);
-  const limitNum = parseInt(limit);
-  const startIndex = (pageNum - 1) * limitNum;
-  const endIndex = startIndex + limitNum;
-  const paginatedEntries = userEntries.slice(startIndex, endIndex);
-
-  res.json({
-    success: true,
-    data: {
-      entries: paginatedEntries,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total: userEntries.length,
-        pages: Math.ceil(userEntries.length / limitNum)
-      }
+    // Add search filter if provided
+    if (search) {
+      queryText += ` AND (
+        LOWER(triggers) LIKE LOWER($${queryParams.length + 1}) OR
+        LOWER(symptoms) LIKE LOWER($${queryParams.length + 1}) OR
+        LOWER(location) LIKE LOWER($${queryParams.length + 1})
+      )`;
+      queryParams.push(`%${search}%`);
     }
-  });
+
+    // Get total count
+    const countResult = await query(
+      queryText.replace(/SELECT .+ FROM/, 'SELECT COUNT(*) FROM'),
+      queryParams
+    );
+    const total = parseInt(countResult.rows[0].count);
+
+    // Get paginated results
+    queryText += ` ORDER BY start_time DESC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+    queryParams.push(limitNum, offset);
+
+    const result = await query(queryText, queryParams);
+
+    const entries = result.rows.map(row => transformEntryForAPI(row));
+
+    res.json({
+      success: true,
+      data: {
+        entries,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          pages: Math.ceil(total / limitNum)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get entries error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching entries'
+    });
+  }
 });
 
 // Get single migraine entry
-app.get('/api/migraine/:id', authenticate, (req, res) => {
-  const entry = migraines.get(req.params.id);
+app.get('/api/migraine/:id', authenticate, async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT id, user_id, start_time, end_time, intensity, location,
+              triggers, symptoms, medication, notes, created_at, updated_at
+       FROM migraine_entries
+       WHERE id = $1`,
+      [req.params.id]
+    );
 
-  if (!entry) {
-    return res.status(404).json({
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Migraine entry not found'
+      });
+    }
+
+    const entry = result.rows[0];
+
+    // Check if entry belongs to user
+    if (entry.user_id !== req.userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: transformEntryForAPI(entry)
+    });
+  } catch (error) {
+    console.error('Get entry error:', error);
+    res.status(500).json({
       success: false,
-      message: 'Migraine entry not found'
+      message: 'Error fetching entry'
     });
   }
-
-  // Check if entry belongs to user
-  if (entry.userId !== req.userId) {
-    return res.status(403).json({
-      success: false,
-      message: 'Access denied'
-    });
-  }
-
-  res.json({
-    success: true,
-    data: entry
-  });
 });
 
 // Create new migraine entry
-app.post('/api/migraine', authenticate, (req, res) => {
-  const {
-    startTime,
-    endTime,
-    intensity,
-    location,
-    triggers,
-    symptoms,
-    medication,
-    notes
-  } = req.body;
+app.post('/api/migraine', authenticate, async (req, res) => {
+  try {
+    const {
+      date,
+      startTime,
+      endTime,
+      intensity,
+      location,
+      triggers,
+      symptoms,
+      medication,
+      notes
+    } = req.body;
 
-  // Validation
-  if (!startTime || !intensity) {
-    return res.status(400).json({
+    // Validation
+    if (!date || !startTime || !intensity) {
+      return res.status(400).json({
+        success: false,
+        message: 'Date, start time, and intensity are required'
+      });
+    }
+
+    // Combine date and time into ISO timestamp
+    const startDateTime = `${date}T${startTime}:00`;
+    const endDateTime = endTime ? `${date}T${endTime}:00` : null;
+
+    // Convert arrays to comma-separated strings
+    const triggersStr = Array.isArray(triggers) ? triggers.join(', ') : (triggers || '');
+    const symptomsStr = Array.isArray(symptoms) ? symptoms.join(', ') : (symptoms || '');
+
+    const result = await query(
+      `INSERT INTO migraine_entries 
+       (user_id, start_time, end_time, intensity, location, triggers, symptoms, medication, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, user_id, start_time, end_time, intensity, location,
+                 triggers, symptoms, medication, notes, created_at, updated_at`,
+      [
+        req.userId,
+        startDateTime,
+        endDateTime,
+        parseInt(intensity),
+        location || '',
+        triggersStr,
+        symptomsStr,
+        medication || '',
+        notes || ''
+      ]
+    );
+
+    const entry = result.rows[0];
+
+    res.status(201).json({
+      success: true,
+      data: transformEntryForAPI(entry)
+    });
+  } catch (error) {
+    console.error('Create entry error:', error);
+    res.status(500).json({
       success: false,
-      message: 'Start time and intensity are required'
+      message: 'Error creating entry'
     });
   }
-
-  // Create new entry
-  const entryId = uuidv4();
-  const entry = {
-    id: entryId,
-    userId: req.userId,
-    startTime,
-    endTime: endTime || null,
-    intensity: parseInt(intensity),
-    location: location || '',
-    triggers: triggers || '',
-    symptoms: symptoms || '',
-    medication: medication || '',
-    notes: notes || '',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-
-  migraines.set(entryId, entry);
-  
-  // Add to user's migraines
-  const userMigraineList = userMigraines.get(req.userId) || [];
-  userMigraineList.push(entryId);
-  userMigraines.set(req.userId, userMigraineList);
-
-  res.status(201).json({
-    success: true,
-    data: entry
-  });
 });
 
 // Update migraine entry
-app.put('/api/migraine/:id', authenticate, (req, res) => {
-  const entry = migraines.get(req.params.id);
+app.put('/api/migraine/:id', authenticate, async (req, res) => {
+  try {
+    // First, check if entry exists and belongs to user
+    const checkResult = await query(
+      'SELECT user_id FROM migraine_entries WHERE id = $1',
+      [req.params.id]
+    );
 
-  if (!entry) {
-    return res.status(404).json({
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Migraine entry not found'
+      });
+    }
+
+    if (checkResult.rows[0].user_id !== req.userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    const {
+      date,
+      startTime,
+      endTime,
+      intensity,
+      location,
+      triggers,
+      symptoms,
+      medication,
+      notes
+    } = req.body;
+
+    // Prepare update values
+    let startDateTime = null;
+    let endDateTime = null;
+    
+    if (date && startTime) {
+      startDateTime = `${date}T${startTime}:00`;
+    }
+    if (date && endTime) {
+      endDateTime = `${date}T${endTime}:00`;
+    }
+
+    // Convert arrays to comma-separated strings if provided
+    const triggersStr = triggers ? (Array.isArray(triggers) ? triggers.join(', ') : triggers) : null;
+    const symptomsStr = symptoms ? (Array.isArray(symptoms) ? symptoms.join(', ') : symptoms) : null;
+
+    const result = await query(
+      `UPDATE migraine_entries
+       SET start_time = COALESCE($1, start_time),
+           end_time = COALESCE($2, end_time),
+           intensity = COALESCE($3, intensity),
+           location = COALESCE($4, location),
+           triggers = COALESCE($5, triggers),
+           symptoms = COALESCE($6, symptoms),
+           medication = COALESCE($7, medication),
+           notes = COALESCE($8, notes)
+       WHERE id = $9
+       RETURNING id, user_id, start_time, end_time, intensity, location,
+                 triggers, symptoms, medication, notes, created_at, updated_at`,
+      [
+        startDateTime,
+        endDateTime,
+        intensity ? parseInt(intensity) : null,
+        location,
+        triggersStr,
+        symptomsStr,
+        medication,
+        notes,
+        req.params.id
+      ]
+    );
+
+    const entry = result.rows[0];
+
+    res.json({
+      success: true,
+      data: transformEntryForAPI(entry)
+    });
+  } catch (error) {
+    console.error('Update entry error:', error);
+    res.status(500).json({
       success: false,
-      message: 'Migraine entry not found'
+      message: 'Error updating entry'
     });
   }
-
-  // Check if entry belongs to user
-  if (entry.userId !== req.userId) {
-    return res.status(403).json({
-      success: false,
-      message: 'Access denied'
-    });
-  }
-
-  // Update entry
-  const updatedEntry = {
-    ...entry,
-    ...req.body,
-    id: entry.id, // Preserve ID
-    userId: entry.userId, // Preserve user ID
-    createdAt: entry.createdAt, // Preserve creation date
-    updatedAt: new Date().toISOString()
-  };
-
-  migraines.set(req.params.id, updatedEntry);
-
-  res.json({
-    success: true,
-    data: updatedEntry
-  });
 });
 
 // Delete migraine entry
-app.delete('/api/migraine/:id', authenticate, (req, res) => {
-  const entry = migraines.get(req.params.id);
+app.delete('/api/migraine/:id', authenticate, async (req, res) => {
+  try {
+    // First, check if entry exists and belongs to user
+    const checkResult = await query(
+      'SELECT user_id FROM migraine_entries WHERE id = $1',
+      [req.params.id]
+    );
 
-  if (!entry) {
-    return res.status(404).json({
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Migraine entry not found'
+      });
+    }
+
+    if (checkResult.rows[0].user_id !== req.userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    await query('DELETE FROM migraine_entries WHERE id = $1', [req.params.id]);
+
+    res.json({
+      success: true,
+      message: 'Entry deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete entry error:', error);
+    res.status(500).json({
       success: false,
-      message: 'Migraine entry not found'
+      message: 'Error deleting entry'
     });
   }
-
-  // Check if entry belongs to user
-  if (entry.userId !== req.userId) {
-    return res.status(403).json({
-      success: false,
-      message: 'Access denied'
-    });
-  }
-
-  // Delete entry
-  migraines.delete(req.params.id);
-
-  // Remove from user's list
-  const userMigraineList = userMigraines.get(req.userId) || [];
-  const updatedList = userMigraineList.filter(id => id !== req.params.id);
-  userMigraines.set(req.userId, updatedList);
-
-  res.json({
-    success: true,
-    message: 'Entry deleted successfully'
-  });
 });
 
 // ============================================
 // HEALTH CHECK
 // ============================================
 
-app.get('/api/health', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Migraine Tracker API is running',
-    timestamp: new Date().toISOString()
-  });
+app.get('/api/health', async (req, res) => {
+  try {
+    // Test database connection
+    await query('SELECT 1');
+    
+    res.json({
+      success: true,
+      message: 'Migraine Tracker API is running',
+      database: 'connected',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(503).json({
+      success: false,
+      message: 'Service unavailable',
+      database: 'disconnected',
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // ============================================
@@ -512,6 +714,21 @@ app.use((err, req, res, next) => {
 // START SERVER
 // ============================================
 
+// Graceful shutdown
+const gracefulShutdown = async () => {
+  console.log('\n🛑 Shutting down gracefully...');
+  try {
+    await closePool();
+    process.exit(0);
+  } catch (error) {
+    console.error('Error during shutdown:', error);
+    process.exit(1);
+  }
+};
+
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
+
 app.listen(PORT, () => {
   console.log(`🚀 Migraine Tracker API running on http://localhost:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
@@ -527,5 +744,5 @@ app.listen(PORT, () => {
   console.log(`   DELETE /api/migraine/:id`);
   console.log(`   GET    /api/migraine/statistics`);
   console.log(`   GET    /api/migraine/recent`);
+  console.log(`\n🔐 Demo user: demo@example.com / demo123`);
 });
-

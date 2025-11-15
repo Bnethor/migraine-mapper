@@ -5,6 +5,7 @@ import DashboardPage from '../features/dashboard/DashboardPage';
 import MigraineListPage from '../features/migraine/MigraineListPage';
 import MigraineDetailPage from '../features/migraine/MigraineDetailPage';
 import MigraineFormPage from '../features/migraine/MigraineFormPage';
+import ProfilePage from '../features/profile/ProfilePage';
 
 // ============================================
 // APP ROUTER
@@ -69,6 +70,15 @@ export const AppRouter = () => {
         element={
           <ProtectedRoute>
             <MigraineFormPage />
+          </ProtectedRoute>
+        }
+      />
+      
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <ProfilePage />
           </ProtectedRoute>
         }
       />

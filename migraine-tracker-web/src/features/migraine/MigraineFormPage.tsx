@@ -243,6 +243,7 @@ export const MigraineFormPage = () => {
                       max="5"
                       step="1"
                       {...field}
+                      onChange={(e) => field.onChange(parseInt(e.target.value))}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600"
                       disabled={isLoading}
                     />

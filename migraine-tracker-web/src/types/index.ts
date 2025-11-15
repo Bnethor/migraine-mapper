@@ -12,6 +12,41 @@ export interface User {
   createdAt: string;
 }
 
+export interface UserProfile {
+  userId: string;
+  // Episode characteristics
+  typicalDuration?: 1 | 2 | 3;
+  monthlyFrequency?: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+  // Pain characteristics
+  typicalPainLocation?: 0 | 1 | 2;
+  typicalPainCharacter?: 0 | 1 | 2;
+  typicalPainIntensity?: 0 | 1 | 2 | 3;
+  // Common symptoms
+  experiencesNausea?: 0 | 1;
+  experiencesVomit?: 0 | 1;
+  experiencesPhonophobia?: 0 | 1;
+  experiencesPhotophobia?: 0 | 1;
+  // Aura symptoms
+  typicalVisualSymptoms?: 0 | 1 | 2 | 3 | 4;
+  typicalSensorySymptoms?: 0 | 1 | 2;
+  // Neurological symptoms
+  experiencesDysphasia?: 0 | 1;
+  experiencesDysarthria?: 0 | 1;
+  experiencesVertigo?: 0 | 1;
+  experiencesTinnitus?: 0 | 1;
+  experiencesHypoacusis?: 0 | 1;
+  experiencesDiplopia?: 0 | 1;
+  experiencesDefect?: 0 | 1;
+  experiencesAtaxia?: 0 | 1;
+  experiencesConscience?: 0 | 1;
+  experiencesParesthesia?: 0 | 1;
+  // Family and diagnosis
+  familyHistory?: 0 | 1;
+  diagnosedType?: MigraineType;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface AuthResponse {
   user: User;
   token: string;
@@ -44,6 +79,15 @@ export interface MigraineEntry {
   createdAt: string;
   updatedAt: string;
 }
+
+export type MigraineType =
+  | 'typical-aura-with-migraine'
+  | 'migraine-without-aura'
+  | 'typical-aura-without-migraine'
+  | 'familial-hemiplegic-migraine'
+  | 'sporadic-hemiplegic-migraine'
+  | 'basilar-type-aura'
+  | 'other';
 
 export type PainLocation = 
   | 'frontal'

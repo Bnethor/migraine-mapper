@@ -1065,6 +1065,12 @@ app.post('/api/wearable/upload', authenticate, upload.single('file'), async (req
     let parsedData;
     try {
       parsedData = await parseWearableCSV(req.file.buffer);
+      console.log(`📊 CSV parsed: ${parsedData.data.length} rows`);
+      
+      // Log sample of timestamps to verify hourly data
+      if (parsedData.data.length > 0) {
+        console.log('Sample timestamps:', parsedData.data.slice(0, 5).map(r => r.timestamp?.toISOString()).filter(Boolean));
+      }
     } catch (error) {
       console.error('CSV parsing error:', error);
       return res.status(400).json({
@@ -1223,6 +1229,8 @@ app.post('/api/wearable/upload', authenticate, upload.single('file'), async (req
        WHERE id = $6`,
       [insertedCount, updatedCount, skippedCount, errors.length, status, uploadSessionId]
     );
+
+    console.log(`✅ Upload complete: ${insertedCount} inserted, ${updatedCount} updated, ${skippedCount} skipped, ${errors.length} errors (total: ${parsedData.data.length})`);
 
     res.status(201).json({
       success: true,
@@ -2092,6 +2100,17 @@ app.get('/api/wearable/statistics', authenticate, async (req, res) => {
     const result = await query(queryText, queryParams);
     const stats = result.rows[0];
 
+    // Get hourly breakdown for sample day
+    const hourlyResult = await query(
+      `SELECT DATE(timestamp) as date, COUNT(*) as entries_per_day
+       FROM wearable_data
+       WHERE user_id = $1
+       GROUP BY DATE(timestamp)
+       ORDER BY date DESC
+       LIMIT 10`,
+      [req.userId]
+    );
+
     res.json({
       success: true,
       data: {
@@ -2108,7 +2127,11 @@ app.get('/api/wearable/statistics', authenticate, async (req, res) => {
         dateRange: {
           earliest: stats.earliest_date ? stats.earliest_date.toISOString() : null,
           latest: stats.latest_date ? stats.latest_date.toISOString() : null
-        }
+        },
+        entriesPerDay: hourlyResult.rows.map(r => ({
+          date: typeof r.date === 'string' ? r.date : r.date.toISOString().split('T')[0],
+          count: parseInt(r.entries_per_day)
+        }))
       }
     });
   } catch (error) {

@@ -53,12 +53,24 @@ export interface RiskAnalysisData {
   patternsCount: number;
 }
 
+export interface SimulatedMetrics {
+  stress?: number;
+  recovery?: number;
+  hrv?: number;
+  heartRate?: number;
+  sleepEfficiency?: number;
+  skinTemp?: number;
+}
+
 /**
  * Get formatted AI prompt for migraine risk analysis
  */
-export const getRiskAnalysisPrompt = async (): Promise<
+export const getRiskAnalysisPrompt = async (simulatedData?: SimulatedMetrics): Promise<
   ApiResponse<RiskAnalysisPrompt>
 > => {
+  if (simulatedData) {
+    return api.post<RiskAnalysisPrompt>('/risk-prediction/prompt', { simulatedData });
+  }
   return api.get<RiskAnalysisPrompt>('/risk-prediction/prompt');
 };
 

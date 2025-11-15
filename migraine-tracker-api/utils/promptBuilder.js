@@ -144,14 +144,23 @@ const formatUserProfile = (profile) => {
  * @param {Array} data.wearableData - Last 24 hours of wearable data
  * @param {Array} data.patterns - Correlation patterns
  * @param {Object} data.profile - User profile
+ * @param {boolean} data.isSimulated - Whether data is simulated
  * @returns {string} Complete formatted prompt
  */
 export const buildRiskAnalysisPrompt = (data) => {
-  const { wearableData, patterns, profile } = data;
+  const { wearableData, patterns, profile, isSimulated } = data;
+
+  const simulatedNote = isSimulated ? `
+
+**⚠️ NOTE: Using Simulated Data for Testing**
+The wearable data below has been manually configured for testing purposes. The AI should analyze these simulated values against the historical patterns to demonstrate its predictive capabilities.
+
+` : '';
 
   const prompt = `# Migraine Risk Analysis Request
 
 You are an expert migraine specialist analyzing wearable device data to predict migraine risk. Based on the following information, provide a comprehensive 12-hour migraine risk assessment.
+${simulatedNote}
 
 ${formatUserProfile(profile)}
 

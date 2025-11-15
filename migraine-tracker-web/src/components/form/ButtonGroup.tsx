@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 interface ButtonGroupOption {
   value: number;
@@ -27,7 +27,7 @@ export const ButtonGroup = ({
 }: ButtonGroupProps) => {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       <div className="flex flex-wrap gap-2">
@@ -77,7 +77,7 @@ export const ToggleButton = ({
   return (
     <div>
       <div className="flex items-center justify-between">
-        <label className="block text-sm font-medium text-gray-700">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
           {label}
         </label>
         <button
@@ -99,7 +99,7 @@ export const ToggleButton = ({
         </button>
       </div>
       {helperText && (
-        <p className="mt-1 text-xs text-gray-500">{helperText}</p>
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{helperText}</p>
       )}
       {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </div>

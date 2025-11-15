@@ -209,16 +209,16 @@ export const CalendarPage = () => {
         onClick={() => handleDayClick(day, dayNumber)}
         disabled={!day.hasData || markMutation.isPending || removeMutation.isPending || (day.migraineCount && day.migraineCount > 0)}
         className={`
-          relative p-2 h-20 border border-gray-200 rounded-lg
+          relative p-2 h-20 border rounded-lg
           transition-all duration-200
           ${day.hasData && (!day.migraineCount || day.migraineCount === 0)
-            ? 'hover:bg-gray-50 hover:border-blue-300 cursor-pointer'
+            ? 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-blue-300 dark:hover:border-blue-500 cursor-pointer'
             : day.hasData
-            ? 'cursor-default'
-            : 'bg-gray-50 opacity-50 cursor-not-allowed'
+            ? 'border-gray-200 dark:border-gray-700 cursor-default'
+            : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30 opacity-50 dark:opacity-40 cursor-not-allowed'
           }
-          ${isToday ? 'ring-2 ring-blue-500' : ''}
-          ${day.isMigraineDay ? 'bg-red-50 border-red-300' : ''}
+          ${isToday ? 'ring-2 ring-blue-500 dark:ring-blue-400' : ''}
+          ${day.isMigraineDay ? 'bg-red-50 dark:bg-red-900/30 border-red-300 dark:border-red-700' : ''}
           ${markMutation.isPending || removeMutation.isPending ? 'opacity-50' : ''}
         `}
         title={
@@ -235,7 +235,11 @@ export const CalendarPage = () => {
           <div className="flex items-center justify-between mb-1">
             <span
               className={`text-sm font-medium ${
-                isToday ? 'text-blue-600' : day.isMigraineDay ? 'text-red-700' : 'text-gray-900'
+                isToday 
+                  ? 'text-blue-600 dark:text-blue-400' 
+                  : day.isMigraineDay 
+                  ? 'text-red-700 dark:text-red-400' 
+                  : 'text-gray-900 dark:text-gray-100'
               }`}
             >
               {dayNumber}
@@ -243,21 +247,21 @@ export const CalendarPage = () => {
             {day.isMigraineDay && (
               <div className="flex items-center gap-1">
                 {day.migraineCount && day.migraineCount > 1 && (
-                  <span className="text-xs font-bold text-red-700">{day.migraineCount}</span>
+                  <span className="text-xs font-bold text-red-700 dark:text-red-400">{day.migraineCount}</span>
                 )}
-                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0" />
               </div>
             )}
           </div>
           <div className="flex flex-col gap-1 mt-auto">
             {day.hasData && (
               <div className="flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3 text-green-600 flex-shrink-0" />
-                <span className="text-xs text-gray-600">{day.dataPoints}</span>
+                <CheckCircle2 className="w-3 h-3 text-green-600 dark:text-green-400 flex-shrink-0" />
+                <span className="text-xs text-gray-600 dark:text-gray-400">{day.dataPoints}</span>
               </div>
             )}
             {day.migraineCount && day.migraineCount > 0 && (
-              <div className="text-xs font-medium text-red-700">
+              <div className="text-xs font-medium text-red-700 dark:text-red-400">
                 {day.migraineCount} {day.migraineCount === 1 ? 'entry' : 'entries'}
               </div>
             )}
@@ -322,8 +326,8 @@ export const CalendarPage = () => {
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Migraine Calendar</h1>
-          <p className="mt-2 text-gray-600">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Migraine Calendar</h1>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">
             Days with migraine entries are automatically marked. View your wearable data and track patterns.
           </p>
         </div>
@@ -333,15 +337,15 @@ export const CalendarPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <div className="p-4">
-                <p className="text-sm text-gray-600">Days with Data</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Days with Data</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   {calendarData?.data?.data?.totalDaysWithData || calendarData?.data?.totalDaysWithData || 0}
                 </p>
               </div>
             </Card>
             <Card>
               <div className="p-4">
-                <p className="text-sm text-gray-600">Migraine Days</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Migraine Days</p>
                 <p className="text-2xl font-bold text-red-600">
                   {calendarData?.data?.data?.totalMigraineDays || calendarData?.data?.totalMigraineDays || 0}
                 </p>
@@ -349,8 +353,8 @@ export const CalendarPage = () => {
             </Card>
             <Card>
               <div className="p-4">
-                <p className="text-sm text-gray-600">Current Month</p>
-                <p className="text-2xl font-bold text-gray-900">{getMonthName()}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Current Month</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{getMonthName()}</p>
               </div>
             </Card>
           </div>
@@ -421,7 +425,7 @@ export const CalendarPage = () => {
               {weekDays.map((day) => (
                 <div
                   key={day}
-                  className="text-center text-sm font-medium text-gray-700 py-2"
+                  className="text-center text-sm font-medium text-gray-700 dark:text-gray-300 py-2"
                 >
                   {day}
                 </div>
@@ -434,23 +438,23 @@ export const CalendarPage = () => {
             </div>
 
             {/* Legend */}
-            <div className="mt-6 pt-6 border-t border-gray-200">
+            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
               <div className="flex flex-wrap items-center gap-6 text-sm">
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-blue-500 rounded"></div>
-                  <span className="text-gray-600">Today</span>
+                  <span className="text-gray-600 dark:text-gray-400">Today</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600" />
-                  <span className="text-gray-600">Has wearable data</span>
+                  <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
+                  <span className="text-gray-600 dark:text-gray-400">Has wearable data</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 bg-red-50 border border-red-300 rounded"></div>
-                  <span className="text-gray-600">Migraine day</span>
+                  <span className="text-gray-600 dark:text-gray-400">Migraine day</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-gray-50 border border-gray-200 rounded opacity-50"></div>
-                  <span className="text-gray-600">No data available</span>
+                  <div className="w-4 h-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded opacity-50"></div>
+                  <span className="text-gray-600 dark:text-gray-400">No data available</span>
                 </div>
               </div>
             </div>

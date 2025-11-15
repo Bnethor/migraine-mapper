@@ -36,7 +36,7 @@ const MigraineChart = ({ data, type }: MigraineChartProps) => {
   // If no data, show empty state
   if (!data || data.length === 0) {
     return (
-      <div className="flex items-center justify-center h-64 text-gray-500">
+      <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">
         <p>No data available</p>
       </div>
     );
@@ -64,11 +64,11 @@ const MigraineChart = ({ data, type }: MigraineChartProps) => {
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="text-sm font-medium text-gray-900">
+        <div className="bg-white p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
             {payload[0].payload.date || payload[0].payload.month}
           </p>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             {config.name}: <span className="font-semibold">{payload[0].value}</span>
           </p>
         </div>

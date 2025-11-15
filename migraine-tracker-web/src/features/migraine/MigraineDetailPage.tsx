@@ -122,10 +122,10 @@ export const MigraineDetailPage = () => {
               Back
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
                 Migraine Entry
               </h1>
-              <p className="text-gray-600 mt-1">
+              <p className="text-gray-600 dark:text-gray-400 mt-1">
                 {format(new Date(entry.date), 'MMMM dd, yyyy')}
               </p>
             </div>
@@ -165,8 +165,8 @@ export const MigraineDetailPage = () => {
                     <Calendar className="text-blue-600" size={20} />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Date</p>
-                    <p className="font-medium text-gray-900">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Date</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">
                       {format(new Date(entry.date), 'EEEE, MMMM dd, yyyy')}
                     </p>
                   </div>
@@ -176,8 +176,8 @@ export const MigraineDetailPage = () => {
                     <Clock className="text-green-600" size={20} />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Duration</p>
-                    <p className="font-medium text-gray-900">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Duration</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">
                       {entry.startTime}
                       {entry.endTime && ` - ${entry.endTime}`}
                     </p>
@@ -232,11 +232,11 @@ export const MigraineDetailPage = () => {
               <Card padding="lg">
                 <CardHeader>
                   <div className="flex items-center gap-2">
-                    <FileText className="text-gray-600" size={20} />
+                    <FileText className="text-gray-600 dark:text-gray-400" size={20} />
                     <CardTitle>Notes</CardTitle>
                   </div>
                 </CardHeader>
-                <p className="text-gray-700 whitespace-pre-wrap">
+                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                   {entry.notes}
                 </p>
               </Card>
@@ -286,7 +286,7 @@ export const MigraineDetailPage = () => {
                     <CardTitle>Location</CardTitle>
                   </div>
                 </CardHeader>
-                <p className="text-gray-900 font-medium capitalize">
+                <p className="text-gray-900 dark:text-gray-100 font-medium capitalize">
                   {entry.location.replace('-', ' ')}
                 </p>
               </Card>
@@ -301,15 +301,15 @@ export const MigraineDetailPage = () => {
                     <CardTitle>Medication</CardTitle>
                   </div>
                 </CardHeader>
-                <p className="text-gray-900 font-medium">
+                <p className="text-gray-900 dark:text-gray-100 font-medium">
                   {entry.medication}
                 </p>
               </Card>
             )}
 
             {/* Metadata Card */}
-            <Card padding="md" className="bg-gray-50">
-              <div className="space-y-2 text-xs text-gray-600">
+            <Card padding="md" className="bg-gray-50 dark:bg-gray-800">
+              <div className="space-y-2 text-xs text-gray-600 dark:text-gray-400">
                 <p>
                   <span className="font-medium">Created:</span>{' '}
                   {format(new Date(entry.createdAt), 'MMM dd, yyyy HH:mm')}

@@ -69,27 +69,27 @@ const WearableDataTable = ({ entries }: WearableDataTableProps) => {
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+        <thead className="bg-gray-50 dark:bg-gray-800">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Date
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Data Points
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Avg Stress
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Avg Heart Rate
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Avg HRV
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Source
             </th>
-            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Actions
             </th>
           </tr>
@@ -116,17 +116,17 @@ const WearableDataTable = ({ entries }: WearableDataTableProps) => {
 
             return (
               <>
-                <tr key={date} className="hover:bg-gray-50 cursor-pointer" onClick={() => toggleRow(date)}>
+                <tr key={date} className="hover:bg-gray-50 dark:bg-gray-800 cursor-pointer" onClick={() => toggleRow(date)}>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                       {format(new Date(date), 'MMM dd, yyyy')}
                     </div>
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
                       {format(new Date(date), 'EEEE')}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{dayEntries.length}</div>
+                    <div className="text-sm text-gray-900 dark:text-gray-100">{dayEntries.length}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className={`text-sm font-medium ${getMetricColor(avgStress, 'stress')}`}>
@@ -165,36 +165,36 @@ const WearableDataTable = ({ entries }: WearableDataTableProps) => {
                 {/* Expanded details */}
                 {isExpanded && (
                   <tr>
-                    <td colSpan={7} className="px-6 py-4 bg-gray-50">
+                    <td colSpan={7} className="px-6 py-4 bg-gray-50 dark:bg-gray-800">
                       <div className="space-y-4">
-                        <h4 className="text-sm font-semibold text-gray-900 mb-3">
+                        <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
                           Detailed Metrics ({dayEntries.length} data points)
                         </h4>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                           {/* Stress */}
                           {dayEntries.some(e => e.stressValue) && (
-                            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                               <div className="flex items-center gap-2 mb-2">
                                 <Brain className="text-purple-500" size={18} />
-                                <span className="text-xs font-medium text-gray-600 uppercase">Stress</span>
+                                <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Stress</span>
                               </div>
                               <div className="space-y-1">
                                 <div className="flex justify-between text-sm">
-                                  <span className="text-gray-600">Average:</span>
+                                  <span className="text-gray-600 dark:text-gray-400">Average:</span>
                                   <span className={`font-semibold ${getMetricColor(avgStress, 'stress')}`}>
                                     {formatMetric(avgStress)}
                                   </span>
                                 </div>
                                 <div className="flex justify-between text-sm">
-                                  <span className="text-gray-600">Min:</span>
-                                  <span className="text-gray-900">
+                                  <span className="text-gray-600 dark:text-gray-400">Min:</span>
+                                  <span className="text-gray-900 dark:text-gray-100">
                                     {formatMetric(Math.min(...dayEntries.filter(e => e.stressValue).map(e => e.stressValue!)))}
                                   </span>
                                 </div>
                                 <div className="flex justify-between text-sm">
-                                  <span className="text-gray-600">Max:</span>
-                                  <span className="text-gray-900">
+                                  <span className="text-gray-600 dark:text-gray-400">Max:</span>
+                                  <span className="text-gray-900 dark:text-gray-100">
                                     {formatMetric(Math.max(...dayEntries.filter(e => e.stressValue).map(e => e.stressValue!)))}
                                   </span>
                                 </div>
@@ -204,27 +204,27 @@ const WearableDataTable = ({ entries }: WearableDataTableProps) => {
 
                           {/* Heart Rate */}
                           {dayEntries.some(e => e.heartRate) && (
-                            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                               <div className="flex items-center gap-2 mb-2">
                                 <Heart className="text-red-500" size={18} />
-                                <span className="text-xs font-medium text-gray-600 uppercase">Heart Rate</span>
+                                <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Heart Rate</span>
                               </div>
                               <div className="space-y-1">
                                 <div className="flex justify-between text-sm">
-                                  <span className="text-gray-600">Average:</span>
+                                  <span className="text-gray-600 dark:text-gray-400">Average:</span>
                                   <span className={`font-semibold ${getMetricColor(avgHeartRate, 'heartRate')}`}>
                                     {formatMetric(avgHeartRate, ' bpm')}
                                   </span>
                                 </div>
                                 <div className="flex justify-between text-sm">
-                                  <span className="text-gray-600">Min:</span>
-                                  <span className="text-gray-900">
+                                  <span className="text-gray-600 dark:text-gray-400">Min:</span>
+                                  <span className="text-gray-900 dark:text-gray-100">
                                     {formatMetric(Math.min(...dayEntries.filter(e => e.heartRate).map(e => e.heartRate!)), ' bpm')}
                                   </span>
                                 </div>
                                 <div className="flex justify-between text-sm">
-                                  <span className="text-gray-600">Max:</span>
-                                  <span className="text-gray-900">
+                                  <span className="text-gray-600 dark:text-gray-400">Max:</span>
+                                  <span className="text-gray-900 dark:text-gray-100">
                                     {formatMetric(Math.max(...dayEntries.filter(e => e.heartRate).map(e => e.heartRate!)), ' bpm')}
                                   </span>
                                 </div>
@@ -234,27 +234,27 @@ const WearableDataTable = ({ entries }: WearableDataTableProps) => {
 
                           {/* HRV */}
                           {dayEntries.some(e => e.hrv) && (
-                            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                               <div className="flex items-center gap-2 mb-2">
                                 <Activity className="text-blue-500" size={18} />
-                                <span className="text-xs font-medium text-gray-600 uppercase">HRV</span>
+                                <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">HRV</span>
                               </div>
                               <div className="space-y-1">
                                 <div className="flex justify-between text-sm">
-                                  <span className="text-gray-600">Average:</span>
+                                  <span className="text-gray-600 dark:text-gray-400">Average:</span>
                                   <span className={`font-semibold ${getMetricColor(avgHrv, 'hrv')}`}>
                                     {formatMetric(avgHrv, ' ms')}
                                   </span>
                                 </div>
                                 <div className="flex justify-between text-sm">
-                                  <span className="text-gray-600">Min:</span>
-                                  <span className="text-gray-900">
+                                  <span className="text-gray-600 dark:text-gray-400">Min:</span>
+                                  <span className="text-gray-900 dark:text-gray-100">
                                     {formatMetric(Math.min(...dayEntries.filter(e => e.hrv).map(e => e.hrv!)), ' ms')}
                                   </span>
                                 </div>
                                 <div className="flex justify-between text-sm">
-                                  <span className="text-gray-600">Max:</span>
-                                  <span className="text-gray-900">
+                                  <span className="text-gray-600 dark:text-gray-400">Max:</span>
+                                  <span className="text-gray-900 dark:text-gray-100">
                                     {formatMetric(Math.max(...dayEntries.filter(e => e.hrv).map(e => e.hrv!)), ' ms')}
                                   </span>
                                 </div>
@@ -264,10 +264,10 @@ const WearableDataTable = ({ entries }: WearableDataTableProps) => {
 
                           {/* Recovery */}
                           {dayEntries.some(e => e.recoveryValue) && (
-                            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                               <div className="flex items-center gap-2 mb-2">
                                 <Activity className="text-green-500" size={18} />
-                                <span className="text-xs font-medium text-gray-600 uppercase">Recovery</span>
+                                <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Recovery</span>
                               </div>
                               <div className="space-y-1">
                                 {(() => {
@@ -276,20 +276,20 @@ const WearableDataTable = ({ entries }: WearableDataTableProps) => {
                                   return (
                                     <>
                                       <div className="flex justify-between text-sm">
-                                        <span className="text-gray-600">Average:</span>
+                                        <span className="text-gray-600 dark:text-gray-400">Average:</span>
                                         <span className={`font-semibold ${getMetricColor(avgRecovery, 'recovery')}`}>
                                           {formatMetric(avgRecovery)}
                                         </span>
                                       </div>
                                       <div className="flex justify-between text-sm">
-                                        <span className="text-gray-600">Min:</span>
-                                        <span className="text-gray-900">
+                                        <span className="text-gray-600 dark:text-gray-400">Min:</span>
+                                        <span className="text-gray-900 dark:text-gray-100">
                                           {formatMetric(Math.min(...recoveryEntries.map(e => e.recoveryValue!)))}
                                         </span>
                                       </div>
                                       <div className="flex justify-between text-sm">
-                                        <span className="text-gray-600">Max:</span>
-                                        <span className="text-gray-900">
+                                        <span className="text-gray-600 dark:text-gray-400">Max:</span>
+                                        <span className="text-gray-900 dark:text-gray-100">
                                           {formatMetric(Math.max(...recoveryEntries.map(e => e.recoveryValue!)))}
                                         </span>
                                       </div>
@@ -302,10 +302,10 @@ const WearableDataTable = ({ entries }: WearableDataTableProps) => {
 
                           {/* Sleep Efficiency */}
                           {dayEntries.some(e => e.sleepEfficiency) && (
-                            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                               <div className="flex items-center gap-2 mb-2">
                                 <Moon className="text-indigo-500" size={18} />
-                                <span className="text-xs font-medium text-gray-600 uppercase">Sleep Efficiency</span>
+                                <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Sleep Efficiency</span>
                               </div>
                               <div className="space-y-1">
                                 {(() => {
@@ -314,20 +314,20 @@ const WearableDataTable = ({ entries }: WearableDataTableProps) => {
                                   return (
                                     <>
                                       <div className="flex justify-between text-sm">
-                                        <span className="text-gray-600">Average:</span>
-                                        <span className="font-semibold text-gray-900">
+                                        <span className="text-gray-600 dark:text-gray-400">Average:</span>
+                                        <span className="font-semibold text-gray-900 dark:text-gray-100">
                                           {formatMetric(avgSleep, '%')}
                                         </span>
                                       </div>
                                       <div className="flex justify-between text-sm">
-                                        <span className="text-gray-600">Min:</span>
-                                        <span className="text-gray-900">
+                                        <span className="text-gray-600 dark:text-gray-400">Min:</span>
+                                        <span className="text-gray-900 dark:text-gray-100">
                                           {formatMetric(Math.min(...sleepEntries.map(e => e.sleepEfficiency!)), '%')}
                                         </span>
                                       </div>
                                       <div className="flex justify-between text-sm">
-                                        <span className="text-gray-600">Max:</span>
-                                        <span className="text-gray-900">
+                                        <span className="text-gray-600 dark:text-gray-400">Max:</span>
+                                        <span className="text-gray-900 dark:text-gray-100">
                                           {formatMetric(Math.max(...sleepEntries.map(e => e.sleepEfficiency!)), '%')}
                                         </span>
                                       </div>
@@ -340,10 +340,10 @@ const WearableDataTable = ({ entries }: WearableDataTableProps) => {
 
                           {/* Skin Temperature */}
                           {dayEntries.some(e => e.skinTemperature) && (
-                            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                               <div className="flex items-center gap-2 mb-2">
                                 <Thermometer className="text-orange-500" size={18} />
-                                <span className="text-xs font-medium text-gray-600 uppercase">Skin Temp</span>
+                                <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Skin Temp</span>
                               </div>
                               <div className="space-y-1">
                                 {(() => {
@@ -352,20 +352,20 @@ const WearableDataTable = ({ entries }: WearableDataTableProps) => {
                                   return (
                                     <>
                                       <div className="flex justify-between text-sm">
-                                        <span className="text-gray-600">Average:</span>
-                                        <span className="font-semibold text-gray-900">
+                                        <span className="text-gray-600 dark:text-gray-400">Average:</span>
+                                        <span className="font-semibold text-gray-900 dark:text-gray-100">
                                           {formatMetric(avgTemp, '°C')}
                                         </span>
                                       </div>
                                       <div className="flex justify-between text-sm">
-                                        <span className="text-gray-600">Min:</span>
-                                        <span className="text-gray-900">
+                                        <span className="text-gray-600 dark:text-gray-400">Min:</span>
+                                        <span className="text-gray-900 dark:text-gray-100">
                                           {formatMetric(Math.min(...tempEntries.map(e => e.skinTemperature!)), '°C')}
                                         </span>
                                       </div>
                                       <div className="flex justify-between text-sm">
-                                        <span className="text-gray-600">Max:</span>
-                                        <span className="text-gray-900">
+                                        <span className="text-gray-600 dark:text-gray-400">Max:</span>
+                                        <span className="text-gray-900 dark:text-gray-100">
                                           {formatMetric(Math.max(...tempEntries.map(e => e.skinTemperature!)), '°C')}
                                         </span>
                                       </div>

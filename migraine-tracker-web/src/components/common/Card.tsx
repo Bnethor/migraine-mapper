@@ -46,7 +46,7 @@ export const Card = ({
   const hoverStyles = hover ? 'hover:shadow-xl transition-shadow duration-300' : '';
 
   // Combine styles
-  const combinedStyles = `bg-white rounded-lg ${paddingStyles[padding]} ${shadowStyles[shadow]} ${hoverStyles} ${className}`;
+  const combinedStyles = `bg-white dark:bg-gray-800 rounded-lg ${paddingStyles[padding]} ${shadowStyles[shadow]} ${hoverStyles} ${className}`;
 
   return (
     <div className={combinedStyles} {...props}>
@@ -65,7 +65,7 @@ interface CardHeaderProps {
 
 export const CardHeader = ({ children, className = '' }: CardHeaderProps) => {
   return (
-    <div className={`border-b border-gray-200 pb-4 mb-4 ${className}`}>
+    <div className={`border-b border-gray-200 dark:border-gray-700 pb-4 mb-4 ${className}`}>
       {children}
     </div>
   );
@@ -81,7 +81,7 @@ interface CardTitleProps {
 
 export const CardTitle = ({ children, className = '' }: CardTitleProps) => {
   return (
-    <h3 className={`text-lg font-semibold text-gray-900 ${className}`}>
+    <h3 className={`text-lg font-semibold text-gray-900 dark:text-gray-100 ${className}`}>
       {children}
     </h3>
   );
@@ -97,7 +97,7 @@ interface CardDescriptionProps {
 
 export const CardDescription = ({ children, className = '' }: CardDescriptionProps) => {
   return (
-    <p className={`text-sm text-gray-600 mt-1 ${className}`}>
+    <p className={`text-sm text-gray-600 dark:text-gray-400 mt-1 ${className}`}>
       {children}
     </p>
   );
@@ -113,7 +113,7 @@ interface CardFooterProps {
 
 export const CardFooter = ({ children, className = '' }: CardFooterProps) => {
   return (
-    <div className={`border-t border-gray-200 pt-4 mt-4 ${className}`}>
+    <div className={`border-t border-gray-200 dark:border-gray-700 pt-4 mt-4 ${className}`}>
       {children}
     </div>
   );

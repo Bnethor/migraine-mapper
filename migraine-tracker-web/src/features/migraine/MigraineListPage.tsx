@@ -105,8 +105,8 @@ export const MigraineListPage = () => {
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">All Entries</h1>
-            <p className="text-gray-600 mt-1">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">All Entries</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
               {activeTab === 'migraines' 
                 ? 'View and manage all your migraine logs' 
                 : 'View all your wearable data entries'}
@@ -125,7 +125,7 @@ export const MigraineListPage = () => {
 
         {/* Tabs */}
         <Card padding="none">
-          <div className="border-b border-gray-200">
+          <div className="border-b border-gray-200 dark:border-gray-700">
             <div className="flex">
               <button
                 onClick={() => setActiveTab('migraines')}
@@ -138,7 +138,7 @@ export const MigraineListPage = () => {
                 <FileText size={18} />
                 Migraine Logs
                 {data?.total && (
-                  <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600">
+                  <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
                     {data.total}
                   </span>
                 )}
@@ -154,7 +154,7 @@ export const MigraineListPage = () => {
                 <Activity size={18} />
                 Wearable Data
                 {wearableEntries.length > 0 && (
-                  <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600">
+                  <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
                     {wearableEntries.length}
                   </span>
                 )}
@@ -227,7 +227,7 @@ export const MigraineListPage = () => {
         {/* Pagination */}
         {activeTab === 'migraines' && data && data.totalPages > 1 && (
           <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               Showing page {data.page} of {data.totalPages} ({data.total} total entries)
             </p>
             <div className="flex gap-2">

@@ -85,15 +85,15 @@ export const Layout = ({ children }: LayoutProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
       {/* Sidebar - Desktop */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-64 bg-white border-r border-gray-200">
+      <aside className="hidden lg:flex lg:flex-col lg:w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
         {/* Logo */}
-        <div className="h-16 flex items-center gap-3 px-6 border-b border-gray-200">
-          <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
+        <div className="h-16 flex items-center gap-3 px-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="w-10 h-10 bg-primary-600 dark:bg-primary-500 rounded-lg flex items-center justify-center">
             <Brain size={24} className="text-white" />
           </div>
-          <span className="text-xl font-bold text-gray-900">
+          <span className="text-xl font-bold text-gray-900 dark:text-gray-100">
             Migraine Tracker
           </span>
         </div>
@@ -110,8 +110,8 @@ export const Layout = ({ children }: LayoutProps) => {
                 to={item.path}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
                   active
-                    ? 'bg-primary-50 text-primary-700 font-medium'
-                    : 'text-gray-700 hover:bg-gray-100'
+                    ? 'bg-primary-50 text-primary-700 font-medium dark:bg-primary-900/30 dark:text-primary-400'
+                    : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
                 }`}
               >
                 <Icon size={20} />
@@ -122,19 +122,19 @@ export const Layout = ({ children }: LayoutProps) => {
         </nav>
 
         {/* User Section */}
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
           <Link
             to="/profile"
-            className="flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-lg mb-2 hover:bg-gray-100 transition-colors cursor-pointer"
+            className="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-lg mb-2 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors cursor-pointer"
           >
-            <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
-              <User size={20} className="text-primary-700" />
+            <div className="w-10 h-10 bg-primary-100 dark:bg-primary-900/50 rounded-full flex items-center justify-center">
+              <User size={20} className="text-primary-700 dark:text-primary-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                 {user?.name || 'User'}
               </p>
-              <p className="text-xs text-gray-500 truncate">
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                 {user?.email}
               </p>
             </div>
@@ -155,19 +155,19 @@ export const Layout = ({ children }: LayoutProps) => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Mobile Header */}
-        <header className="lg:hidden h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4">
+        <header className="lg:hidden h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-primary-600 dark:bg-primary-500 rounded-lg flex items-center justify-center">
               <Brain size={24} className="text-white" />
             </div>
-            <span className="text-lg font-bold text-gray-900">
+            <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
               Migraine Tracker
             </span>
           </div>
           
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2 text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-lg"
+            className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-lg"
             aria-label="Toggle menu"
           >
             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -176,7 +176,7 @@ export const Layout = ({ children }: LayoutProps) => {
 
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
-          <div className="lg:hidden bg-white border-b border-gray-200 p-4">
+          <div className="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
             <nav className="space-y-2 mb-4">
               {navItems.map((item) => {
                 const Icon = item.icon;
@@ -189,8 +189,8 @@ export const Layout = ({ children }: LayoutProps) => {
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
                       active
-                        ? 'bg-primary-50 text-primary-700 font-medium'
-                        : 'text-gray-700 hover:bg-gray-100'
+                        ? 'bg-primary-50 text-primary-700 font-medium dark:bg-primary-900/30 dark:text-primary-400'
+                        : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
                     }`}
                   >
                     <Icon size={20} />
@@ -200,20 +200,20 @@ export const Layout = ({ children }: LayoutProps) => {
               })}
             </nav>
             
-            <div className="pt-4 border-t border-gray-200">
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
               <Link
                 to="/profile"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-lg mb-2 hover:bg-gray-100 transition-colors cursor-pointer"
+                className="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-lg mb-2 hover:bg-gray-100 dark:bg-gray-700 transition-colors cursor-pointer"
               >
                 <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
                   <User size={20} className="text-primary-700" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                     {user?.name || 'User'}
                   </p>
-                  <p className="text-xs text-gray-500 truncate">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                     {user?.email}
                   </p>
                 </div>

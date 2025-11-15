@@ -117,8 +117,8 @@ export const DashboardPage = () => {
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-            <p className="text-gray-600 mt-1">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
               Track and analyze your migraine patterns
             </p>
           </div>
@@ -140,12 +140,12 @@ export const DashboardPage = () => {
                 <Calendar className="text-blue-600" size={24} />
               </div>
               <div>
-                <p className="text-sm text-gray-600">Total Entries</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Total Entries</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   {stats?.totalEntries || 0}
                 </p>
                 {stats?.migraineEntries !== undefined && stats?.wearableDays !== undefined && (
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                     {stats.migraineEntries} logs + {stats.wearableDays} data days
                   </p>
                 )}
@@ -160,10 +160,10 @@ export const DashboardPage = () => {
                 <Activity className="text-red-600" size={24} />
               </div>
               <div>
-                <p className="text-sm text-gray-600">Avg. Intensity</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Avg. Intensity</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   {stats?.averageIntensity?.toFixed(1) || '0.0'}
-                  <span className="text-sm text-gray-500">/5</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">/5</span>
                 </p>
               </div>
             </div>
@@ -185,13 +185,13 @@ export const DashboardPage = () => {
                 <AlertCircle className="text-yellow-600" size={24} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-gray-600">Top Trigger</p>
-                <p className="text-base font-bold text-gray-900 break-words leading-tight">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Top Trigger</p>
+                <p className="text-base font-bold text-gray-900 dark:text-gray-100 break-words leading-tight">
                   {stats?.topTrigger?.trigger || stats?.mostCommonTriggers?.[0]?.trigger || 'None'}
                 </p>
                 {stats?.topTrigger?.correlationStrength !== null && 
                  stats?.topTrigger?.correlationStrength !== undefined ? (
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                     {Math.abs(stats.topTrigger.correlationStrength * 100).toFixed(0)}% correlation
                   </p>
                 ) : stats?.wearableDays && stats.wearableDays > 0 && (
@@ -210,8 +210,8 @@ export const DashboardPage = () => {
                 <TrendingUp className="text-green-600" size={24} />
               </div>
               <div>
-                <p className="text-sm text-gray-600">This Month</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-sm text-gray-600 dark:text-gray-400">This Month</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   {stats?.frequencyByMonth?.[stats.frequencyByMonth.length - 1]?.count || 0}
                 </p>
               </div>

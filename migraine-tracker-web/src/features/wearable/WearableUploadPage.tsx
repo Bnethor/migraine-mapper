@@ -253,8 +253,8 @@ export const WearableUploadPage = () => {
     <Layout>
       <div className="max-w-4xl mx-auto space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Upload Wearable Data</h1>
-          <p className="mt-2 text-gray-600">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Upload Wearable Data</h1>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">
             Upload CSV files from your wearable devices (Oura Ring, Fitbit, Garmin, etc.)
             to track metrics like stress, HRV, heart rate, and sleep data.
           </p>
@@ -280,24 +280,24 @@ export const WearableUploadPage = () => {
                 className={`
                   border-2 border-dashed rounded-lg p-12 text-center transition-colors
                   ${dragActive
-                    ? 'border-blue-500 bg-blue-50'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-400'
                     : file
-                    ? 'border-green-500 bg-green-50'
-                    : 'border-gray-300 bg-gray-50 hover:border-gray-400'
+                    ? 'border-green-500 bg-green-50 dark:bg-green-900/20 dark:border-green-400'
+                    : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 hover:border-gray-400 dark:hover:border-gray-500'
                   }
                 `}
               >
                 {file ? (
                   <div className="space-y-4">
                     <div className="flex items-center justify-center">
-                      <FileText className="w-16 h-16 text-green-600" />
+                      <FileText className="w-16 h-16 text-green-600 dark:text-green-400" />
                     </div>
                     <div>
-                      <p className="text-lg font-medium text-gray-900">{file.name}</p>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-lg font-medium text-gray-900 dark:text-gray-100">{file.name}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
                         {(file.size / 1024).toFixed(2)} KB
                         {file.size > 100000 && (
-                          <span className="ml-2 text-xs text-gray-400">
+                          <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
                             (Large file - processing may take a few minutes)
                           </span>
                         )}
@@ -308,27 +308,27 @@ export const WearableUploadPage = () => {
                     {uploadMutation.isPending && (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">
+                          <span className="text-gray-600 dark:text-gray-400">
                             {processingPhase ? 'Processing CSV file...' : 'Uploading file...'}
                           </span>
-                          <span className="text-gray-500">{Math.round(uploadProgress)}%</span>
+                          <span className="text-gray-500 dark:text-gray-400">{Math.round(uploadProgress)}%</span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden relative">
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden relative">
                           <div
-                            className="bg-blue-600 h-full rounded-full transition-all duration-300 ease-out"
+                            className="bg-blue-600 dark:bg-blue-500 h-full rounded-full transition-all duration-300 ease-out"
                             style={{ width: `${uploadProgress}%` }}
                           />
                           {processingPhase && uploadProgress < 100 && (
-                            <div className="absolute inset-0 bg-blue-400 animate-pulse" style={{ width: '80%' }} />
+                            <div className="absolute inset-0 bg-blue-400 dark:bg-blue-600 animate-pulse" style={{ width: '80%' }} />
                           )}
                         </div>
                         {estimatedTime !== null && estimatedTime > 0 && (
-                          <div className="flex items-center gap-1 text-xs text-gray-500">
+                          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
                             <Clock className="w-3 h-3" />
                             <span>{formatTimeEstimate(estimatedTime)}</span>
                           </div>
                         )}
-                        <p className="text-xs text-gray-400 text-center">
+                        <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
                           {processingPhase ? (
                             <>
                               Parsing CSV and inserting {Math.ceil(file.size / 100)} estimated rows into database...
@@ -377,13 +377,13 @@ export const WearableUploadPage = () => {
                 ) : (
                   <div className="space-y-4">
                     <div className="flex items-center justify-center">
-                      <Upload className="w-16 h-16 text-gray-400" />
+                      <Upload className="w-16 h-16 text-gray-400 dark:text-gray-500" />
                     </div>
                     <div>
-                      <p className="text-lg font-medium text-gray-900">
+                      <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
                         Drag and drop your CSV file here
                       </p>
-                      <p className="text-sm text-gray-500 mt-1">or</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">or</p>
                       <label htmlFor="csv-file-input" className="inline-block mt-2 cursor-pointer">
                         <input
                           type="file"
@@ -392,12 +392,12 @@ export const WearableUploadPage = () => {
                           onChange={handleFileChange}
                           className="hidden"
                         />
-                        <span className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                        <span className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white hover:bg-gray-50 dark:bg-gray-700 dark:hover:bg-gray-600">
                           Browse Files
                         </span>
                       </label>
                     </div>
-                    <p className="text-xs text-gray-400 mt-4">
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-4">
                       Supported formats: CSV (comma or semicolon separated)
                     </p>
                   </div>
@@ -408,13 +408,13 @@ export const WearableUploadPage = () => {
             {/* Upload Result */}
             {uploadResult && (
               <div className="space-y-4">
-                <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <CheckCircle2 className="w-6 h-6 text-green-600" />
+                <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                  <CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-400" />
                   <div className="flex-1">
-                    <p className="font-medium text-green-900">
+                    <p className="font-medium text-green-900 dark:text-green-300">
                       Upload Successful!
                     </p>
-                    <p className="text-sm text-green-700">
+                    <p className="text-sm text-green-700 dark:text-green-400">
                       Successfully processed {uploadResult.inserted + (uploadResult.updated || 0)} of {uploadResult.total} rows
                       {uploadResult.inserted > 0 && ` (${uploadResult.inserted} new`}
                       {uploadResult.updated && uploadResult.updated > 0 && `, ${uploadResult.updated} updated`}
@@ -425,9 +425,9 @@ export const WearableUploadPage = () => {
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-600">Total Rows</p>
-                    <p className="text-2xl font-bold text-gray-900">{uploadResult.total}</p>
+                  <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Total Rows</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{uploadResult.total}</p>
                   </div>
                   <div className="p-4 bg-green-50 rounded-lg">
                     <p className="text-sm text-green-600">New</p>
@@ -462,17 +462,17 @@ export const WearableUploadPage = () => {
                 )}
 
                 {Object.keys(uploadResult.fieldMapping).length > 0 && (
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm font-medium text-gray-900 mb-2">
+                  <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
                       Recognized Fields:
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {Object.entries(uploadResult.fieldMapping).map(([original, mapped]) => (
                         <span
                           key={original}
-                          className="px-2 py-1 bg-white border border-gray-200 rounded text-xs"
+                          className="px-2 py-1 bg-white border border-gray-200 dark:border-gray-700 rounded text-xs"
                         >
-                          <span className="text-gray-600">{original}</span>
+                          <span className="text-gray-600 dark:text-gray-400">{original}</span>
                           <span className="text-gray-400 mx-1">→</span>
                           <span className="text-blue-600 font-medium">{mapped}</span>
                         </span>
@@ -506,11 +506,11 @@ export const WearableUploadPage = () => {
 
                 <div className="flex justify-between items-center gap-3">
                   {uploadResult.earliestDate && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                       <Calendar className="w-4 h-4" />
                       <span>
                         Data starts from:{' '}
-                        <span className="font-medium text-gray-900">
+                        <span className="font-medium text-gray-900 dark:text-gray-100">
                           {new Date(uploadResult.earliestDate).toLocaleDateString('en-US', {
                             year: 'numeric',
                             month: 'long',
@@ -574,13 +574,13 @@ export const WearableUploadPage = () => {
               ].map((field) => (
                 <div
                   key={field}
-                  className="p-3 bg-gray-50 rounded-lg text-sm text-gray-700"
+                  className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm text-gray-700 dark:text-gray-300"
                 >
                   {field}
                 </div>
               ))}
             </div>
-            <p className="mt-4 text-sm text-gray-600">
+            <p className="mt-4 text-sm text-gray-600 dark:text-gray-400">
               <strong>Note:</strong> Field names can vary (e.g., "stress", "stress_value", "stress_level").
               The system will automatically map them to the correct fields. Any unrecognized fields
               will be stored in the additional_data field for future analysis.
@@ -635,12 +635,12 @@ export const WearableUploadPage = () => {
                 {uploadsData.data.data.uploads.map((upload: UploadSession) => (
                   <div
                     key={upload.id}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                    className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:bg-gray-700 transition-colors"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <FileText className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                        <p className="font-medium text-gray-900 truncate">{upload.filename}</p>
+                        <FileText className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                        <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{upload.filename}</p>
                         {upload.source && (
                           <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded capitalize">
                             {upload.source}
@@ -654,7 +654,7 @@ export const WearableUploadPage = () => {
                           {upload.status}
                         </span>
                       </div>
-                      <div className="flex items-center gap-4 text-sm text-gray-600 ml-6">
+                      <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 ml-6">
                         <span>{(upload.fileSize / 1024).toFixed(1)} KB</span>
                         <span>•</span>
                         <span>{upload.totalRows} rows</span>
@@ -703,7 +703,7 @@ export const WearableUploadPage = () => {
                 ))}
               </div>
             ) : (
-              <p className="text-center text-gray-500 py-8">
+              <p className="text-center text-gray-500 dark:text-gray-400 py-8">
                 No uploads yet. Upload a CSV file to get started.
               </p>
             )}

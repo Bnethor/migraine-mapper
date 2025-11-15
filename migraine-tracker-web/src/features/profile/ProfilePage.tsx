@@ -143,10 +143,10 @@ export const ProfilePage = () => {
         <div className="flex items-center gap-4">
           <User size={32} className="text-primary-600" />
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
               Clinical Profile
             </h1>
-            <p className="text-gray-600 mt-1">
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
               Your typical migraine characteristics for better tracking
             </p>
           </div>
@@ -174,7 +174,7 @@ export const ProfilePage = () => {
 
             {/* Episode Characteristics */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b pb-2">
                 Typical Episode Characteristics
               </h2>
               
@@ -222,7 +222,7 @@ export const ProfilePage = () => {
 
             {/* Pain Characteristics */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b pb-2">
                 Typical Pain Characteristics
               </h2>
               
@@ -284,7 +284,7 @@ export const ProfilePage = () => {
 
             {/* Common Symptoms */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b pb-2">
                 Common Symptoms You Experience
               </h2>
               
@@ -345,7 +345,7 @@ export const ProfilePage = () => {
 
             {/* Aura Symptoms */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b pb-2">
                 Typical Aura Symptoms
               </h2>
               
@@ -390,7 +390,7 @@ export const ProfilePage = () => {
 
             {/* Neurological Symptoms */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b pb-2">
                 Neurological Symptoms You Experience
               </h2>
               
@@ -529,7 +529,7 @@ export const ProfilePage = () => {
 
             {/* Family History & Diagnosis */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b pb-2">
                 Additional Information
               </h2>
               
@@ -548,12 +548,12 @@ export const ProfilePage = () => {
               />
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Diagnosed Migraine Type
                 </label>
                 <select
                   {...register('diagnosedType')}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100 dark:bg-gray-700"
                   disabled={isLoading}
                 >
                   <option value="">Not diagnosed / Unknown</option>

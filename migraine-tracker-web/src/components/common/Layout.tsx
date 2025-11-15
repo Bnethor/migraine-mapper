@@ -91,9 +91,9 @@ export const Layout = ({ children }: LayoutProps) => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
       {/* Sidebar - Desktop */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
+      <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:h-screen lg:fixed lg:left-0 lg:top-0 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
         {/* Logo */}
-        <div className="h-16 flex items-center gap-3 px-6 border-b border-gray-200 dark:border-gray-700">
+        <div className="h-16 flex-shrink-0 flex items-center gap-3 px-6 border-b border-gray-200 dark:border-gray-700">
           <div className="w-10 h-10 bg-primary-600 dark:bg-primary-500 rounded-lg flex items-center justify-center">
             <Brain size={24} className="text-white" />
           </div>
@@ -102,8 +102,8 @@ export const Layout = ({ children }: LayoutProps) => {
           </span>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 px-4 py-6 space-y-2">
+        {/* Navigation - Scrollable */}
+        <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-2 min-h-0">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
@@ -125,8 +125,8 @@ export const Layout = ({ children }: LayoutProps) => {
           })}
         </nav>
 
-        {/* User Section */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+        {/* User Section - Fixed at bottom */}
+        <div className="flex-shrink-0 p-4 border-t border-gray-200 dark:border-gray-700">
           <Link
             to="/profile"
             className="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-lg mb-2 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors cursor-pointer"
@@ -182,7 +182,7 @@ export const Layout = ({ children }: LayoutProps) => {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col lg:ml-64">
         {/* Mobile Header */}
         <header className="lg:hidden h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4">
           <div className="flex items-center gap-3">

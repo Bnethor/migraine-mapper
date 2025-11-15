@@ -41,34 +41,34 @@ const WearableDataTable = ({ entries }: WearableDataTableProps) => {
   };
 
   const getMetricColor = (value: number | undefined, metric: string) => {
-    if (!value) return 'text-gray-400';
+    if (!value) return 'text-gray-400 dark:text-gray-500';
     
     // Color coding based on typical healthy ranges
     switch (metric) {
       case 'stress':
-        if (value < 30) return 'text-green-600';
-        if (value < 60) return 'text-yellow-600';
-        return 'text-red-600';
+        if (value < 30) return 'text-green-600 dark:text-green-400';
+        if (value < 60) return 'text-yellow-600 dark:text-yellow-400';
+        return 'text-red-600 dark:text-red-400';
       case 'recovery':
-        if (value >= 70) return 'text-green-600';
-        if (value >= 40) return 'text-yellow-600';
-        return 'text-red-600';
+        if (value >= 70) return 'text-green-600 dark:text-green-400';
+        if (value >= 40) return 'text-yellow-600 dark:text-yellow-400';
+        return 'text-red-600 dark:text-red-400';
       case 'hrv':
-        if (value >= 50) return 'text-green-600';
-        if (value >= 30) return 'text-yellow-600';
-        return 'text-red-600';
+        if (value >= 50) return 'text-green-600 dark:text-green-400';
+        if (value >= 30) return 'text-yellow-600 dark:text-yellow-400';
+        return 'text-red-600 dark:text-red-400';
       case 'heartRate':
-        if (value >= 60 && value <= 100) return 'text-green-600';
-        if (value >= 50 && value <= 120) return 'text-yellow-600';
-        return 'text-red-600';
+        if (value >= 60 && value <= 100) return 'text-green-600 dark:text-green-400';
+        if (value >= 50 && value <= 120) return 'text-yellow-600 dark:text-yellow-400';
+        return 'text-red-600 dark:text-red-400';
       default:
-        return 'text-gray-700';
+        return 'text-gray-700 dark:text-gray-300';
     }
   };
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
+      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
         <thead className="bg-gray-50 dark:bg-gray-800">
           <tr>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -94,7 +94,7 @@ const WearableDataTable = ({ entries }: WearableDataTableProps) => {
             </th>
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
           {sortedDates.map((date) => {
             const dayEntries = groupedEntries[date];
             const isExpanded = expandedRow === date;
@@ -116,7 +116,7 @@ const WearableDataTable = ({ entries }: WearableDataTableProps) => {
 
             return (
               <>
-                <tr key={date} className="hover:bg-gray-50 dark:bg-gray-800 cursor-pointer" onClick={() => toggleRow(date)}>
+                <tr key={date} className="hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 cursor-pointer" onClick={() => toggleRow(date)}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                       {format(new Date(date), 'MMM dd, yyyy')}
@@ -148,7 +148,7 @@ const WearableDataTable = ({ entries }: WearableDataTableProps) => {
                       {sources.map((source, idx) => (
                         <span
                           key={idx}
-                          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 capitalize"
+                          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 capitalize"
                         >
                           {source}
                         </span>
@@ -156,7 +156,7 @@ const WearableDataTable = ({ entries }: WearableDataTableProps) => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button className="text-blue-600 hover:text-blue-900">
+                    <button className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300">
                       {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                     </button>
                   </td>
@@ -174,7 +174,7 @@ const WearableDataTable = ({ entries }: WearableDataTableProps) => {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                           {/* Stress */}
                           {dayEntries.some(e => e.stressValue) && (
-                            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                               <div className="flex items-center gap-2 mb-2">
                                 <Brain className="text-purple-500" size={18} />
                                 <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Stress</span>
@@ -204,7 +204,7 @@ const WearableDataTable = ({ entries }: WearableDataTableProps) => {
 
                           {/* Heart Rate */}
                           {dayEntries.some(e => e.heartRate) && (
-                            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                               <div className="flex items-center gap-2 mb-2">
                                 <Heart className="text-red-500" size={18} />
                                 <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Heart Rate</span>
@@ -234,7 +234,7 @@ const WearableDataTable = ({ entries }: WearableDataTableProps) => {
 
                           {/* HRV */}
                           {dayEntries.some(e => e.hrv) && (
-                            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                               <div className="flex items-center gap-2 mb-2">
                                 <Activity className="text-blue-500" size={18} />
                                 <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">HRV</span>
@@ -264,7 +264,7 @@ const WearableDataTable = ({ entries }: WearableDataTableProps) => {
 
                           {/* Recovery */}
                           {dayEntries.some(e => e.recoveryValue) && (
-                            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                               <div className="flex items-center gap-2 mb-2">
                                 <Activity className="text-green-500" size={18} />
                                 <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Recovery</span>
@@ -302,7 +302,7 @@ const WearableDataTable = ({ entries }: WearableDataTableProps) => {
 
                           {/* Sleep Efficiency */}
                           {dayEntries.some(e => e.sleepEfficiency) && (
-                            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                               <div className="flex items-center gap-2 mb-2">
                                 <Moon className="text-indigo-500" size={18} />
                                 <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Sleep Efficiency</span>
@@ -340,7 +340,7 @@ const WearableDataTable = ({ entries }: WearableDataTableProps) => {
 
                           {/* Skin Temperature */}
                           {dayEntries.some(e => e.skinTemperature) && (
-                            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                               <div className="flex items-center gap-2 mb-2">
                                 <Thermometer className="text-orange-500" size={18} />
                                 <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Skin Temp</span>

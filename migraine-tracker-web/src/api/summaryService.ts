@@ -102,3 +102,40 @@ export const getSummaryIndicators = async (
   return api.get<{ summaries: SummaryIndicator[]; count: number }>(url);
 };
 
+/**
+ * Get migraine correlation patterns
+ */
+export const getMigraineCorrelations = async (): Promise<ApiResponse<{
+  patterns: Array<{
+    patternType: string;
+    patternName: string;
+    patternDefinition: any;
+    correlationStrength: number | null;
+    confidenceScore: number | null;
+    thresholdValue: number | null;
+    avgValueOnMigraineDays: number | null;
+    avgValueOnNormalDays: number | null;
+    migraineDaysCount: number;
+    totalDaysAnalyzed: number;
+    lastUpdated: string;
+  }>;
+  count: number;
+}>> => {
+  return api.get<{
+    patterns: Array<{
+      patternType: string;
+      patternName: string;
+      patternDefinition: any;
+      correlationStrength: number | null;
+      confidenceScore: number | null;
+      thresholdValue: number | null;
+      avgValueOnMigraineDays: number | null;
+      avgValueOnNormalDays: number | null;
+      migraineDaysCount: number;
+      totalDaysAnalyzed: number;
+      lastUpdated: string;
+    }>;
+    count: number;
+  }>('/summary/correlations');
+};
+

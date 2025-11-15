@@ -1446,6 +1446,83 @@ app.delete('/api/wearable/uploads/:id', authenticate, async (req, res) => {
   }
 });
 
+// Delete all uploads for user (cleanup)
+app.delete('/api/wearable/uploads', authenticate, async (req, res) => {
+  try {
+    // Get count before deletion
+    const countResult = await query(
+      'SELECT COUNT(*) as count FROM upload_sessions WHERE user_id = $1',
+      [req.userId]
+    );
+    const uploadCount = parseInt(countResult.rows[0].count);
+
+    // Delete all upload sessions for user (cascade will delete associated wearable_data)
+    await query(
+      'DELETE FROM upload_sessions WHERE user_id = $1',
+      [req.userId]
+    );
+
+    res.json({
+      success: true,
+      message: `Deleted ${uploadCount} upload session(s) and associated data`,
+      data: {
+        deletedCount: uploadCount
+      }
+    });
+  } catch (error) {
+    console.error('Delete all uploads error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting upload sessions'
+    });
+  }
+});
+
+// Cleanup orphaned wearable data (data without upload_session_id)
+app.post('/api/wearable/cleanup-orphaned', authenticate, async (req, res) => {
+  try {
+    // Count orphaned records
+    const countResult = await query(
+      `SELECT COUNT(*) as count 
+       FROM wearable_data 
+       WHERE user_id = $1 AND upload_session_id IS NULL`,
+      [req.userId]
+    );
+    const orphanedCount = parseInt(countResult.rows[0].count);
+
+    if (orphanedCount === 0) {
+      return res.json({
+        success: true,
+        message: 'No orphaned data found',
+        data: {
+          deletedCount: 0
+        }
+      });
+    }
+
+    // Delete orphaned records
+    await query(
+      `DELETE FROM wearable_data 
+       WHERE user_id = $1 AND upload_session_id IS NULL`,
+      [req.userId]
+    );
+
+    res.json({
+      success: true,
+      message: `Cleaned up ${orphanedCount} orphaned data record(s)`,
+      data: {
+        deletedCount: orphanedCount
+      }
+    });
+  } catch (error) {
+    console.error('Cleanup orphaned data error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error cleaning up orphaned data'
+    });
+  }
+});
+
 // ============================================
 // CALENDAR & MIGRAINE DAY MARKERS ROUTES
 // ============================================
@@ -2129,6 +2206,8 @@ app.listen(PORT, () => {
   console.log(`   GET    /api/wearable/uploads`);
   console.log(`   GET    /api/wearable/uploads/:id`);
   console.log(`   DELETE /api/wearable/uploads/:id`);
+  console.log(`   DELETE /api/wearable/uploads (delete all)`);
+  console.log(`   POST   /api/wearable/cleanup-orphaned`);
   console.log(`   GET    /api/calendar`);
   console.log(`   POST   /api/calendar/migraine-day`);
   console.log(`   DELETE /api/calendar/migraine-day/:date`);

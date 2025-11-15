@@ -152,12 +152,12 @@ export const Layout = ({ children }: LayoutProps) => {
           >
             <div className="flex items-center gap-3">
               {theme === 'light' ? (
-                <Moon className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-              ) : (
                 <Sun className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+              ) : (
+                <Moon className="w-4 h-4 text-gray-600 dark:text-gray-300" />
               )}
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+                {theme === 'light' ? 'Light Mode' : 'Dark Mode'}
               </span>
             </div>
             <div className={`relative w-11 h-6 rounded-full transition-colors ${
@@ -259,12 +259,12 @@ export const Layout = ({ children }: LayoutProps) => {
               >
                 <div className="flex items-center gap-3">
                   {theme === 'light' ? (
-                    <Moon className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-                  ) : (
                     <Sun className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                  ) : (
+                    <Moon className="w-4 h-4 text-gray-600 dark:text-gray-300" />
                   )}
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+                    {theme === 'light' ? 'Light Mode' : 'Dark Mode'}
                   </span>
                 </div>
                 <div className={`relative w-11 h-6 rounded-full transition-colors ${

@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import { Upload, FileText, CheckCircle2, AlertCircle, X, Loader2, Clock } from 'lucide-react';
-import { uploadWearableCSV, type UploadResponse } from '../../api/wearableService';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Upload, FileText, CheckCircle2, AlertCircle, X, Loader2, Clock, Trash2, History } from 'lucide-react';
+import { uploadWearableCSV, getUploadSessions, deleteUploadSession, type UploadResponse, type UploadSession } from '../../api/wearableService';
 import {
   Layout,
   Card,
@@ -26,6 +26,23 @@ export const WearableUploadPage = () => {
   const [processingPhase, setProcessingPhase] = useState(false);
   const uploadStartTime = useRef<number | null>(null);
   const progressInterval = useRef<NodeJS.Timeout | null>(null);
+  const queryClient = useQueryClient();
+
+  // Fetch upload history
+  const { data: uploadsData, refetch: refetchUploads } = useQuery({
+    queryKey: ['upload-sessions'],
+    queryFn: () => getUploadSessions(),
+  });
+
+  // Delete upload mutation
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteUploadSession(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['upload-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['wearable-data'] });
+      queryClient.invalidateQueries({ queryKey: ['wearable-statistics'] });
+    },
+  });
 
   // Calculate estimated processing time based on file size
   const estimateProcessingTime = (fileSize: number, rowCount?: number): number => {
@@ -92,6 +109,8 @@ export const WearableUploadPage = () => {
       }
       uploadStartTime.current = null;
       setEstimatedTime(null);
+      // Refresh upload history
+      refetchUploads();
     },
     onError: (error: Error) => {
       console.error('Upload error:', error);
@@ -337,24 +356,42 @@ export const WearableUploadPage = () => {
                       Upload Successful!
                     </p>
                     <p className="text-sm text-green-700">
-                      Successfully processed {uploadResult.inserted} of {uploadResult.total} rows
+                      Successfully processed {uploadResult.inserted + (uploadResult.updated || 0)} of {uploadResult.total} rows
+                      {uploadResult.inserted > 0 && ` (${uploadResult.inserted} new`}
+                      {uploadResult.updated && uploadResult.updated > 0 && `, ${uploadResult.updated} updated`}
+                      {uploadResult.skipped && uploadResult.skipped > 0 && `, ${uploadResult.skipped} skipped`}
+                      {uploadResult.inserted > 0 && ')'}
                     </p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="p-4 bg-gray-50 rounded-lg">
                     <p className="text-sm text-gray-600">Total Rows</p>
                     <p className="text-2xl font-bold text-gray-900">{uploadResult.total}</p>
                   </div>
                   <div className="p-4 bg-green-50 rounded-lg">
-                    <p className="text-sm text-green-600">Inserted</p>
+                    <p className="text-sm text-green-600">New</p>
                     <p className="text-2xl font-bold text-green-900">{uploadResult.inserted}</p>
                   </div>
-                  <div className="p-4 bg-red-50 rounded-lg">
-                    <p className="text-sm text-red-600">Errors</p>
-                    <p className="text-2xl font-bold text-red-900">{uploadResult.errors}</p>
-                  </div>
+                  {uploadResult.updated !== undefined && uploadResult.updated > 0 && (
+                    <div className="p-4 bg-blue-50 rounded-lg">
+                      <p className="text-sm text-blue-600">Updated</p>
+                      <p className="text-2xl font-bold text-blue-900">{uploadResult.updated}</p>
+                    </div>
+                  )}
+                  {uploadResult.skipped !== undefined && uploadResult.skipped > 0 && (
+                    <div className="p-4 bg-yellow-50 rounded-lg">
+                      <p className="text-sm text-yellow-600">Skipped</p>
+                      <p className="text-2xl font-bold text-yellow-900">{uploadResult.skipped}</p>
+                    </div>
+                  )}
+                  {uploadResult.errors > 0 && (
+                    <div className="p-4 bg-red-50 rounded-lg">
+                      <p className="text-sm text-red-600">Errors</p>
+                      <p className="text-2xl font-bold text-red-900">{uploadResult.errors}</p>
+                    </div>
+                  )}
                 </div>
 
                 {uploadResult.source && (
@@ -463,6 +500,98 @@ export const WearableUploadPage = () => {
               The system will automatically map them to the correct fields. Any unrecognized fields
               will be stored in the additional_data field for future analysis.
             </p>
+          </div>
+        </Card>
+
+        {/* Upload History */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <History className="w-5 h-5" />
+              Upload History
+            </CardTitle>
+            <CardDescription>
+              View and manage your previous CSV uploads. You can delete uploads to remove all associated data.
+            </CardDescription>
+          </CardHeader>
+          <div className="p-6">
+            {uploadsData?.data?.data?.uploads && uploadsData.data.data.uploads.length > 0 ? (
+              <div className="space-y-3">
+                {uploadsData.data.data.uploads.map((upload: UploadSession) => (
+                  <div
+                    key={upload.id}
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <FileText className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                        <p className="font-medium text-gray-900 truncate">{upload.filename}</p>
+                        {upload.source && (
+                          <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded capitalize">
+                            {upload.source}
+                          </span>
+                        )}
+                        <span className={`px-2 py-0.5 text-xs rounded ${
+                          upload.status === 'completed' ? 'bg-green-100 text-green-700' :
+                          upload.status === 'failed' ? 'bg-red-100 text-red-700' :
+                          'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {upload.status}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-gray-600 ml-6">
+                        <span>{(upload.fileSize / 1024).toFixed(1)} KB</span>
+                        <span>•</span>
+                        <span>{upload.totalRows} rows</span>
+                        <span>•</span>
+                        <span className="text-green-600">{upload.insertedRows} new</span>
+                        {upload.updatedRows > 0 && (
+                          <>
+                            <span>•</span>
+                            <span className="text-blue-600">{upload.updatedRows} updated</span>
+                          </>
+                        )}
+                        {upload.skippedRows > 0 && (
+                          <>
+                            <span>•</span>
+                            <span className="text-yellow-600">{upload.skippedRows} skipped</span>
+                          </>
+                        )}
+                        {upload.errorRows > 0 && (
+                          <>
+                            <span>•</span>
+                            <span className="text-red-600">{upload.errorRows} errors</span>
+                          </>
+                        )}
+                        <span>•</span>
+                        <span>{new Date(upload.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => {
+                        if (window.confirm(`Delete this upload? This will remove ${upload.insertedRows} data records.`)) {
+                          deleteMutation.mutate(upload.id);
+                        }
+                      }}
+                      disabled={deleteMutation.isPending}
+                      className="ml-4"
+                    >
+                      {deleteMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-gray-500 py-8">
+                No uploads yet. Upload a CSV file to get started.
+              </p>
+            )}
           </div>
         </Card>
       </div>

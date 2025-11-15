@@ -44,13 +44,31 @@ export interface WearableStatistics {
 }
 
 export interface UploadResponse {
+  uploadSessionId: string;
   inserted: number;
+  updated: number;
+  skipped: number;
   total: number;
   errors: number;
   source: string;
   fieldMapping: Record<string, string>;
   unrecognizedFields: string[];
   errorDetails?: Array<{ timestamp: Date; error: string }>;
+}
+
+export interface UploadSession {
+  id: string;
+  filename: string;
+  fileSize: number;
+  source?: string;
+  totalRows: number;
+  insertedRows: number;
+  updatedRows: number;
+  skippedRows: number;
+  errorRows: number;
+  status: 'completed' | 'failed' | 'partial';
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ============================================
@@ -169,5 +187,26 @@ export const getWearableStatistics = async (
 
   const url = `/wearable/statistics${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
   return api.get<WearableStatistics>(url);
+};
+
+/**
+ * Get upload sessions (list of all uploads)
+ */
+export const getUploadSessions = async (): Promise<ApiResponse<{ uploads: UploadSession[]; count: number }>> => {
+  return api.get<{ uploads: UploadSession[]; count: number }>('/wearable/uploads');
+};
+
+/**
+ * Get single upload session details
+ */
+export const getUploadSession = async (id: string): Promise<ApiResponse<UploadSession & { fieldMapping?: Record<string, string>; unrecognizedFields?: string[] }>> => {
+  return api.get<UploadSession & { fieldMapping?: Record<string, string>; unrecognizedFields?: string[] }>(`/wearable/uploads/${id}`);
+};
+
+/**
+ * Delete upload session and associated data
+ */
+export const deleteUploadSession = async (id: string): Promise<ApiResponse<{ deletedRecords: number }>> => {
+  return api.delete<{ deletedRecords: number }>(`/wearable/uploads/${id}`);
 };
 

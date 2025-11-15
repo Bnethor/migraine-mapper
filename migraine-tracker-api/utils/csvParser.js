@@ -24,16 +24,19 @@ const FIELD_MAPPINGS = {
     'avg_recovery_value', 'avg_recovery', 'readiness'
   ],
   
-  // Heart rate fields
-  heartRate: [
-    'heart_rate', 'hr', 'heartrate', 'bpm', 'pulse',
-    'avg_heart_rate', 'avg_hr', 'resting_heart_rate', 'rhr'
+  // HRV (Heart Rate Variability) fields - MUST come before heartRate to avoid conflicts
+  // These are checked first to ensure "hrv" matches HRV, not heart rate
+  hrv: [
+    'hrv', 'heart_rate_variability', 'hr_variability', 'hrv_value',
+    'rmssd', 'sdnn', 'heart_rate_variability_ms', 'hrv_ms'
   ],
   
-  // HRV (Heart Rate Variability) fields
-  hrv: [
-    'hrv', 'heart_rate_variability', 'hr_variability',
-    'rmssd', 'sdnn'
+  // Heart rate fields - must NOT include "hr" alone to avoid matching "hrv"
+  // Only include full terms like "heart_rate", "avg_heart_rate", etc.
+  heartRate: [
+    'heart_rate', 'heartrate', 'bpm', 'pulse', 'beats_per_minute',
+    'avg_heart_rate', 'resting_heart_rate', 'rhr', 'resting_hr',
+    'hr_bpm', 'heart_rate_bpm', 'avg_hr', 'average_heart_rate'
   ],
   
   // Sleep-related fields
@@ -75,16 +78,73 @@ const normalizeColumnName = (name) => {
 /**
  * Find matching field for a column name
  * Returns the standardized field name if a match is found
+ * Prioritizes exact matches and prevents "hrv" from matching "hr"
  */
 const findMatchingField = (columnName) => {
   const normalized = normalizeColumnName(columnName);
   
+  // Special case: "hrv" should NEVER match heart rate fields
+  // Check HRV first to ensure it takes priority
+  if (normalized === 'hrv' || normalized.startsWith('hrv') || normalized.includes('hrv')) {
+    for (const variation of FIELD_MAPPINGS.hrv) {
+      const normalizedVariation = normalizeColumnName(variation);
+      if (normalized === normalizedVariation || 
+          normalized.startsWith(normalizedVariation) ||
+          normalizedVariation.startsWith(normalized)) {
+        return 'hrv';
+      }
+    }
+  }
+  
+  // First pass: Check for exact matches (most specific)
   for (const [field, variations] of Object.entries(FIELD_MAPPINGS)) {
     for (const variation of variations) {
-      if (normalized === normalizeColumnName(variation) || 
-          normalized.includes(normalizeColumnName(variation)) ||
-          normalizeColumnName(variation).includes(normalized)) {
+      const normalizedVariation = normalizeColumnName(variation);
+      if (normalized === normalizedVariation) {
         return field;
+      }
+    }
+  }
+  
+  // Second pass: Check for starts-with matches (more specific than contains)
+  for (const [field, variations] of Object.entries(FIELD_MAPPINGS)) {
+    for (const variation of variations) {
+      const normalizedVariation = normalizeColumnName(variation);
+      // Check if column starts with variation or variation starts with column
+      if (normalized.startsWith(normalizedVariation) || normalizedVariation.startsWith(normalized)) {
+        // But avoid false matches - e.g., "hrv" should not match "hr"
+        // Only match if the variation is a significant part of the column name
+        if (normalizedVariation.length >= 3 && normalized.length >= normalizedVariation.length) {
+          // Additional safety: if normalized contains "hrv", don't match heart rate
+          if (normalized.includes('hrv') && field === 'heartRate') {
+            continue;
+          }
+          return field;
+        }
+      }
+    }
+  }
+  
+  // Third pass: Check for contains matches (least specific, but avoid conflicts)
+  // Skip this pass for short variations to avoid false matches
+  for (const [field, variations] of Object.entries(FIELD_MAPPINGS)) {
+    for (const variation of variations) {
+      const normalizedVariation = normalizeColumnName(variation);
+      // Only match if variation is substantial (at least 4 chars) to avoid "hr" matching "hrv"
+      if (normalizedVariation.length >= 4 && normalized.includes(normalizedVariation)) {
+        // Critical: if column contains "hrv", never match heart rate fields
+        if (normalized.includes('hrv') && field === 'heartRate') {
+          continue;
+        }
+        // Make sure we're not matching a shorter substring incorrectly
+        if (normalized.length >= normalizedVariation.length) {
+          // Additional check: if normalized is longer, make sure it's not just a prefix
+          const index = normalized.indexOf(normalizedVariation);
+          if (index === 0 || normalized.endsWith(normalizedVariation) || 
+              (index > 0 && normalized[index - 1] === '_')) {
+            return field;
+          }
+        }
       }
     }
   }

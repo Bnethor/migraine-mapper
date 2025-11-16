@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: migraine-tracker-api
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DB_HOST
+        fromDatabase:
+          name: migraine-tracker-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: migraine-tracker-db
+          property: port
+      - key: DB_USER
+        fromDatabase:
+          name: migraine-tracker-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: migraine-tracker-db
+          property: password
+      - key: DB_NAME
+        fromDatabase:
+          name: migraine-tracker-db
+          property: database
+
+databases:
+  - name: migraine-tracker-db
+    plan: free
+    databaseName: migrainetracker
+    user: migraineuser
+

@@ -5,7 +5,7 @@ services:
     env: node
     plan: free
     buildCommand: cd migraine-tracker-api && npm install
-    startCommand: cd migraine-tracker-api && npm start
+    startCommand: bash start.sh
     envVars:
       - key: NODE_ENV
         value: production

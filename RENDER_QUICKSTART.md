@@ -12,7 +12,7 @@ This is a simplified guide to get your app deployed on Render quickly.
 
 4. **Render will automatically:**
    - Create PostgreSQL database
-   - Deploy backend API
+   - Deploy backend API (uses `start.sh` which handles npm install and environment detection)
    - Deploy frontend static site
    - Link database to backend
 
@@ -30,6 +30,12 @@ This is a simplified guide to get your app deployed on Render quickly.
       - Click **Save Changes** and **Manual Deploy** → **Deploy latest commit**
 
 6. **Done!** Visit your frontend URL
+
+**Note:** The `start.sh` script automatically:
+- Detects Render environment (vs local Docker)
+- Installs dependencies if needed
+- Uses managed PostgreSQL on Render (no Docker needed)
+- Runs backend in foreground (as Render requires)
 
 ## 📝 Environment Variables
 

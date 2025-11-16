@@ -9,8 +9,11 @@ import type { ApiError, ApiResponse } from '../types';
 /**
  * Base API URL - Replace with your MCP agent API endpoint
  * You can use environment variables for different environments
+ * 
+ * Default is '/api' which works with Vite proxy and ngrok tunnels
+ * Set VITE_API_BASE_URL in .env for production deployments
  */
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 /**
  * Token management utilities

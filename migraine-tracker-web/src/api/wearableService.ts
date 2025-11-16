@@ -131,7 +131,7 @@ export const uploadWearableCSV = async (
     });
 
     // Open and send request
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
     xhr.open('POST', `${apiBaseUrl}/wearable/upload`);
     
     if (token) {

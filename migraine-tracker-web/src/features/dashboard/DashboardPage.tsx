@@ -2,9 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { 
   Calendar, 
-  TrendingUp, 
   AlertCircle, 
-  Activity,
   Plus,
   Brain,
   User,
@@ -25,8 +23,8 @@ import {
   ErrorMessage,
   Button 
 } from '../../components/common';
-import MigraineChart from './MigraineChart';
 import RecentEntries from './RecentEntries';
+import MigraineCalendarPreview from './MigraineCalendarPreview';
 
 // ============================================
 // DASHBOARD PAGE
@@ -73,8 +71,8 @@ export const DashboardPage = () => {
       
       // Extract prompt from response
       let prompt = '';
-      if (promptResponse?.data?.data?.prompt) {
-        prompt = promptResponse.data.data.prompt;
+      if (promptResponse?.data?.prompt) {
+        prompt = promptResponse.data.prompt;
       } else {
         throw new Error('Failed to generate prompt');
       }
@@ -253,12 +251,12 @@ export const DashboardPage = () => {
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Total Entries */}
           <Card hover padding="lg">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <Calendar className="text-blue-600" size={24} />
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                <Calendar className="text-blue-600 dark:text-blue-400" size={24} />
               </div>
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Total Entries</p>
@@ -270,22 +268,6 @@ export const DashboardPage = () => {
                     {stats.migraineEntries} logs + {stats.wearableDays} data days
                   </p>
                 )}
-              </div>
-            </div>
-          </Card>
-
-          {/* Average Intensity */}
-          <Card hover padding="lg">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-red-100 rounded-lg">
-                <Activity className="text-red-600" size={24} />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Avg. Intensity</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {stats?.averageIntensity?.toFixed(1) || '0.0'}
-                  <span className="text-sm text-gray-500 dark:text-gray-400">/5</span>
-                </p>
               </div>
             </div>
           </Card>
@@ -302,8 +284,8 @@ export const DashboardPage = () => {
             className={!stats?.topTrigger || stats.topTrigger.trigger === 'None' ? 'cursor-pointer' : ''}
           >
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-yellow-100 rounded-lg">
-                <AlertCircle className="text-yellow-600" size={24} />
+              <div className="p-3 bg-yellow-100 dark:bg-yellow-900/50 rounded-lg">
+                <AlertCircle className="text-yellow-600 dark:text-yellow-400" size={24} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-gray-600 dark:text-gray-400">Top Trigger</p>
@@ -316,25 +298,10 @@ export const DashboardPage = () => {
                     {Math.abs(stats.topTrigger.correlationStrength * 100).toFixed(0)}% correlation
                   </p>
                 ) : stats?.wearableDays && stats.wearableDays > 0 && (
-                  <p className="text-xs text-blue-600 mt-0.5 hover:underline">
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5 hover:underline">
                     Mark migraine days →
                   </p>
                 )}
-              </div>
-            </div>
-          </Card>
-
-          {/* This Month */}
-          <Card hover padding="lg">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-green-100 rounded-lg">
-                <TrendingUp className="text-green-600" size={24} />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">This Month</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {stats?.frequencyByMonth?.[stats.frequencyByMonth.length - 1]?.count || 0}
-                </p>
               </div>
             </div>
           </Card>
@@ -684,30 +651,16 @@ export const DashboardPage = () => {
           </div>
         </Card>
 
-        {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Intensity Trend Chart */}
-          <Card padding="lg">
-            <CardHeader>
-              <CardTitle>Intensity Trend</CardTitle>
-              <CardDescription>
-                Track how your migraine intensity changes over time
-              </CardDescription>
-            </CardHeader>
-            <MigraineChart data={stats?.intensityTrend || []} type="intensity" />
-          </Card>
-
-          {/* Frequency Chart */}
-          <Card padding="lg">
-            <CardHeader>
-              <CardTitle>Monthly Frequency</CardTitle>
-              <CardDescription>
-                Number of migraines per month
-              </CardDescription>
-            </CardHeader>
-            <MigraineChart data={stats?.frequencyByMonth || []} type="frequency" />
-          </Card>
-        </div>
+        {/* Migraine Calendar Preview */}
+        <Card padding="lg">
+          <CardHeader>
+            <CardTitle>Migraine Calendar</CardTitle>
+            <CardDescription>
+              View your migraine patterns across the month. Click to open full calendar.
+            </CardDescription>
+          </CardHeader>
+          <MigraineCalendarPreview />
+        </Card>
 
         {/* Recent Entries */}
         <Card padding="lg">

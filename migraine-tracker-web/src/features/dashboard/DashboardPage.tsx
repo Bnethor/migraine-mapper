@@ -71,8 +71,8 @@ export const DashboardPage = () => {
       
       // Extract prompt from response
       let prompt = '';
-      if (promptResponse?.data?.prompt) {
-        prompt = promptResponse.data.prompt;
+      if (promptResponse?.data?.data?.prompt) {
+        prompt = promptResponse.data.data.prompt;
       } else {
         throw new Error('Failed to generate prompt');
       }

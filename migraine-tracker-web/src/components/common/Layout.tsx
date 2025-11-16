@@ -98,7 +98,7 @@ export const Layout = ({ children }: LayoutProps) => {
             <Brain size={24} className="text-white" />
           </div>
           <span className="text-xl font-bold text-gray-900 dark:text-gray-100">
-            Migraine Tracker
+            Migraine Mapper
           </span>
         </div>
 
@@ -190,7 +190,7 @@ export const Layout = ({ children }: LayoutProps) => {
               <Brain size={24} className="text-white" />
             </div>
             <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
-              Migraine Tracker
+              Migraine Mapper
             </span>
           </div>
           

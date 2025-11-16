@@ -74,7 +74,7 @@ export const LoginPage = () => {
             <Brain size={32} className="text-white" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-            Migraine Tracker
+            Migraine Mapper
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
             Sign in to track and manage your migraines

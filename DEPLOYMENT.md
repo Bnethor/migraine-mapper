@@ -1,276 +1,233 @@
-# 🚀 Deployment Guide
+# 🚀 Deployment Guide for Render
 
-This guide will help you deploy both the frontend and backend of the Migraine Tracker application.
+This guide will help you deploy both the frontend and backend of the Migraine Tracker application to Render.
 
-## 📋 Overview
+## 📋 Prerequisites
 
-- **Frontend**: Deploy to Vercel (free tier)
-- **Backend**: Deploy to Render (free tier with PostgreSQL)
+1. A [Render account](https://render.com) (free tier available)
+2. Your code pushed to a Git repository (GitHub, GitLab, or Bitbucket)
+3. Basic understanding of environment variables
 
-## 🎨 Frontend Deployment (Vercel)
+## 🎯 Render Free Tier Overview
 
-### Option 1: Deploy via Vercel Dashboard (Recommended)
+**Free Tier Includes:**
+- **Web Services**: Free, but spins down after 15 minutes of inactivity (takes ~30 seconds to wake up)
+- **PostgreSQL Database**: Free for 90 days, then $7/month
+- **Static Sites**: Free and always on
 
-1. **Push your code to GitHub**
-   ```bash
-   git add .
-   git commit -m "Prepare for deployment"
-   git push origin main
+**Alternative Free Options:**
+- **Railway**: Similar free tier, better for always-on services
+- **Fly.io**: Free tier with better uptime
+- **Supabase**: Free PostgreSQL + hosting options
+
+## 📦 Deployment Steps
+
+### Option 1: Using render.yaml (Recommended - One-Click Deploy)
+
+1. **Push your code to GitHub/GitLab/Bitbucket**
+
+2. **Go to Render Dashboard** → [New](https://dashboard.render.com/new)
+
+3. **Select "Blueprint"** (or "Infrastructure as Code")
+
+4. **Connect your repository** and select the branch
+
+5. **Render will detect `render.yaml`** and create all services automatically
+
+6. **After deployment, update the frontend environment variable:**
+   - Go to your `migraine-tracker-web` service
+   - Navigate to **Environment** tab
+   - Set `VITE_API_BASE_URL` to: `https://your-api-service.onrender.com/api`
+   - Redeploy the frontend service
+
+### Option 2: Manual Deployment
+
+#### Step 1: Deploy PostgreSQL Database
+
+1. Go to [Render Dashboard](https://dashboard.render.com) → **New** → **PostgreSQL**
+2. Configure:
+   - **Name**: `migraine-tracker-db`
+   - **Database**: `migrainetracker`
+   - **User**: `migraineuser`
+   - **Plan**: Free (or paid for always-on)
+3. Click **Create Database**
+4. **Save the connection details** - you'll need them for the backend
+
+#### Step 2: Deploy Backend API
+
+1. Go to **New** → **Web Service**
+2. Connect your repository
+3. Configure:
+   - **Name**: `migraine-tracker-api`
+   - **Environment**: `Node`
+   - **Build Command**: `cd migraine-tracker-api && npm install`
+   - **Start Command**: `cd migraine-tracker-api && npm start`
+   - **Plan**: Free
+4. **Add Environment Variables:**
    ```
-
-2. **Go to [Vercel](https://vercel.com)**
-   - Sign up/login with GitHub
-   - Click "New Project"
-   - Import your repository
-   - Select the `migraine-tracker-web` folder as the root directory
-
-3. **Configure Environment Variables**
-   - In Vercel project settings, go to "Environment Variables"
-   - Add: `VITE_API_BASE_URL` = `https://your-api.onrender.com/api`
-     (Replace with your actual Render backend URL)
-
-4. **Deploy**
-   - Click "Deploy"
-   - Vercel will automatically build and deploy your app
-
-### Option 2: Deploy via Vercel CLI
-
-```bash
-cd migraine-tracker-web
-npm install -g vercel
-vercel login
-vercel
-```
-
-Follow the prompts and add the environment variable when asked.
-
-## 🔧 Backend Deployment (Render)
-
-### Step 1: Prepare Your Backend
-
-1. **Push your code to GitHub** (if not already done)
-
-2. **Create a `render.yaml` file** (already created in `migraine-tracker-api/`)
-
-### Step 2: Deploy on Render
-
-1. **Go to [Render](https://render.com)**
-   - Sign up/login with GitHub
-   - Click "New +" → "Blueprint"
-
-2. **Connect Your Repository**
-   - Select your GitHub repository
-   - Render will detect the `render.yaml` file automatically
-
-3. **Configure the Blueprint**
-   - Render will create both the web service and PostgreSQL database
-   - The database connection will be automatically configured
-
-4. **Manual Setup (Alternative)**
-   If you prefer manual setup:
-   
-   a. **Create PostgreSQL Database**
-      - Click "New +" → "PostgreSQL"
-      - Name: `migraine-tracker-db`
-      - Plan: Free
-      - Click "Create Database"
-      - Note the connection details
-   
-   b. **Create Web Service**
-      - Click "New +" → "Web Service"
-      - Connect your repository
-      - Root Directory: `migraine-tracker-api`
-      - Build Command: `npm install`
-      - Start Command: `npm start`
-      - Plan: Free
-   
-   c. **Add Environment Variables**
-      - `NODE_ENV` = `production`
-      - `PORT` = `10000` (Render uses port 10000)
-      - `JWT_SECRET` = (generate a strong random string)
-      - Database variables (from PostgreSQL service):
-        - `DB_HOST` = (from database service)
-        - `DB_PORT` = (from database service)
-        - `DB_USER` = (from database service)
-        - `DB_PASSWORD` = (from database service)
-        - `DB_NAME` = (from database service)
-
-5. **Deploy**
-   - Click "Create Web Service"
-   - Render will build and deploy your API
-
-### Step 3: Get Your Backend URL
-
-After deployment, Render will provide a URL like:
-```
-https://migraine-tracker-api.onrender.com
-```
-
-Your API will be available at:
-```
-https://migraine-tracker-api.onrender.com/api
-```
-
-## 🔗 Connect Frontend to Backend
-
-1. **Update Vercel Environment Variable**
-   - Go to your Vercel project settings
-   - Environment Variables
-   - Update `VITE_API_BASE_URL` to: `https://your-api.onrender.com/api`
-   - Redeploy the frontend
-
-2. **Update CORS (if needed)**
-   - Your backend should already have CORS enabled
-   - If you get CORS errors, check `server.js` has:
-     ```javascript
-     app.use(cors());
-     ```
-
-## 🗄️ Database Setup
-
-### Initial Database Schema
-
-After deploying to Render, you need to run your database migrations. Your project has SQL files in `migraine-tracker-api/db/`:
-
-1. **`init.sql`** - Initial schema and demo data
-2. **`migration_001_add_clinical_fields.sql`** - Clinical fields
-3. **`migration_002_user_profile.sql`** - User profiles
-4. **`migration_003_wearable_data.sql`** - Wearable data tables
-5. **`migration_004_upload_sessions.sql`** - Upload sessions
-6. **`migration_005_migraine_day_markers.sql`** - Calendar markers
-7. **`migration_006_summary_indicators.sql`** - Summary indicators
-8. **`migration_007_migraine_correlations.sql`** - Correlation tables
-
-### Running Migrations on Render
-
-**Option 1: Using Render's PostgreSQL Dashboard (Easiest)**
-
-1. Go to your Render dashboard
-2. Click on your PostgreSQL database service
-3. Click "Connect" → "psql" (or use the "Query" tab if available)
-4. Copy and paste the contents of each SQL file in order:
-   - First: `init.sql`
-   - Then: `migration_001_add_clinical_fields.sql`
-   - Then: `migration_002_user_profile.sql`
-   - Continue with remaining migrations in order
-
-**Option 2: Using psql Command Line**
-
-1. Get your database connection string from Render dashboard
-2. Connect via psql:
-   ```bash
-   psql "postgresql://user:password@host:port/database"
+   NODE_ENV=production
+   PORT=10000
+   JWT_SECRET=<generate-a-random-secret-key>
+   DB_HOST=<from-database-connection-string>
+   DB_PORT=<from-database-connection-string>
+   DB_USER=<from-database-connection-string>
+   DB_PASSWORD=<from-database-connection-string>
+   DB_NAME=migrainetracker
    ```
-3. Run each migration file:
-   ```bash
-   \i init.sql
-   \i migration_001_add_clinical_fields.sql
-   # ... continue with all migrations
+5. Click **Create Web Service**
+6. **Wait for deployment** and note the URL (e.g., `https://migraine-tracker-api.onrender.com`)
+
+#### Step 3: Initialize Database
+
+The database needs to be initialized with the schema. You have two options:
+
+**Option A: Run migrations manually (Recommended)**
+1. Connect to your Render database using a PostgreSQL client
+2. Run the SQL files from `migraine-tracker-api/db/` in order:
+   - `init.sql`
+   - `migration_001_add_clinical_fields.sql`
+   - `migration_002_user_profile.sql`
+   - `migration_003_wearable_data.sql`
+   - `migration_004_upload_sessions.sql`
+   - `migration_005_migraine_day_markers.sql`
+   - `migration_006_summary_indicators.sql`
+   - `migration_007_migraine_correlations.sql`
+
+**Option B: Add initialization script to backend**
+- We can create a migration script that runs on startup (see below)
+
+#### Step 4: Deploy Frontend
+
+1. Go to **New** → **Static Site**
+2. Connect your repository
+3. Configure:
+   - **Name**: `migraine-tracker-web`
+   - **Build Command**: `cd migraine-tracker-web && npm install && npm run build`
+   - **Publish Directory**: `migraine-tracker-web/dist`
+   - **Plan**: Free
+4. **Add Environment Variable:**
    ```
+   VITE_API_BASE_URL=https://your-api-service.onrender.com/api
+   ```
+   Replace `your-api-service` with your actual backend service name
+5. Click **Create Static Site**
 
-**Option 3: Using a Database Client**
+## 🔧 Post-Deployment Configuration
 
-Use tools like:
-- [pgAdmin](https://www.pgadmin.org/)
-- [DBeaver](https://dbeaver.io/)
-- [TablePlus](https://tableplus.com/)
+### 1. Update CORS Settings (if needed)
 
-Connect using the connection details from Render and run the SQL files.
+If you encounter CORS errors, update `migraine-tracker-api/server.js`:
 
-### Migration Order
+```javascript
+app.use(cors({
+  origin: ['https://your-frontend-url.onrender.com', 'http://localhost:5173'],
+  credentials: true
+}));
+```
 
-Run migrations in this exact order:
-1. `init.sql`
-2. `migration_001_add_clinical_fields.sql`
-3. `migration_002_user_profile.sql`
-4. `migration_003_wearable_data.sql`
-5. `migration_004_upload_sessions.sql`
-6. `migration_005_migraine_day_markers.sql`
-7. `migration_006_summary_indicators.sql`
-8. `migration_007_migraine_correlations.sql`
+### 2. Database Initialization
 
-## 📝 Environment Variables Summary
+After the first deployment, you need to initialize the database schema. You can:
 
-### Frontend (Vercel)
-- `VITE_API_BASE_URL` - Your Render backend URL (e.g., `https://migraine-tracker-api.onrender.com/api`)
+1. **Use Render's Shell** (easiest):
+   - Go to your database service → **Connect** → **Shell**
+   - Or use a local PostgreSQL client with the connection string
 
-### Backend (Render)
-- `NODE_ENV` - `production`
-- `PORT` - `10000` (Render default)
-- `JWT_SECRET` - Strong random string
-- `DB_HOST` - From PostgreSQL service
-- `DB_PORT` - From PostgreSQL service
-- `DB_USER` - From PostgreSQL service
-- `DB_PASSWORD` - From PostgreSQL service
-- `DB_NAME` - From PostgreSQL service
+2. **Create an initialization endpoint** (we can add this)
 
-## 🆓 Free Tier Limitations
+### 3. Test Your Deployment
 
-### Vercel
-- ✅ Unlimited deployments
-- ✅ Automatic HTTPS
-- ✅ Global CDN
-- ⚠️ 100GB bandwidth/month
-- ⚠️ Serverless function limits
+1. Visit your frontend URL
+2. Try registering a new user
+3. Check backend logs for any errors
 
-### Render
-- ✅ Free PostgreSQL database (90 days, then $7/month)
-- ✅ Free web service (spins down after 15 min inactivity)
-- ⚠️ First request after inactivity may be slow (cold start)
-- ⚠️ 750 hours/month free tier
+## 🔐 Environment Variables Reference
 
-## 🔍 Troubleshooting
+### Backend (`migraine-tracker-api`)
+```
+NODE_ENV=production
+PORT=10000
+JWT_SECRET=<random-secret-key>
+DB_HOST=<from-render-database>
+DB_PORT=<from-render-database>
+DB_USER=<from-render-database>
+DB_PASSWORD=<from-render-database>
+DB_NAME=migrainetracker
+```
 
-### Backend Issues
+### Frontend (`migraine-tracker-web`)
+```
+VITE_API_BASE_URL=https://your-api-service.onrender.com/api
+```
 
-1. **Database Connection Errors**
-   - Verify all database environment variables are set correctly
-   - Check that the PostgreSQL service is running
-   - Ensure the database name matches
+## ⚠️ Important Notes
 
-2. **Port Issues**
-   - Render uses port 10000 by default
-   - Make sure your `PORT` env var is set to `10000`
+1. **Free Tier Limitations:**
+   - Backend spins down after 15 min inactivity (first request takes ~30s)
+   - Database is free for 90 days, then $7/month
+   - Consider upgrading to paid plan for production use
 
-3. **Build Failures**
-   - Check Render build logs
-   - Ensure all dependencies are in `package.json`
-   - Verify Node.js version compatibility
+2. **Database Persistence:**
+   - Data persists even when backend spins down
+   - Make sure to run migrations before first use
 
-### Frontend Issues
+3. **Environment Variables:**
+   - Frontend env vars must be set at build time
+   - If you change `VITE_API_BASE_URL`, you need to redeploy
 
-1. **API Connection Errors**
-   - Verify `VITE_API_BASE_URL` is set correctly in Vercel
-   - Check browser console for CORS errors
-   - Ensure backend is deployed and running
+4. **Custom Domain:**
+   - Render allows custom domains on free tier
+   - Go to service settings → **Custom Domains**
 
-2. **Build Failures**
-   - Check Vercel build logs
-   - Ensure all dependencies are installed
-   - Verify TypeScript compilation
+## 🆘 Troubleshooting
 
-## 🚀 Alternative Backend Hosting Options
+### Backend won't start
+- Check logs in Render dashboard
+- Verify all environment variables are set
+- Ensure database is accessible
 
-If Render doesn't work for you, here are other free options:
+### Frontend can't connect to API
+- Verify `VITE_API_BASE_URL` is correct
+- Check CORS settings in backend
+- Ensure backend is running (may need to wake it up)
 
-### Railway
-- Free tier: $5 credit/month
+### Database connection errors
+- Verify database credentials
+- Check database is running
+- Ensure network access is allowed
+
+### 401 Unauthorized errors
+- Check JWT_SECRET is set
+- Verify token is being sent in requests
+
+## 🚀 Alternative Free Hosting Options
+
+### Railway (Recommended for Always-On)
+- Free $5/month credit
+- Better for always-on services
 - Easy PostgreSQL setup
-- Fast deployments
+- [railway.app](https://railway.app)
 
 ### Fly.io
-- Free tier: 3 shared VMs
-- Good for global distribution
-- PostgreSQL available
+- Generous free tier
+- Better uptime than Render free tier
+- [fly.io](https://fly.io)
 
-### Heroku
-- Limited free tier
-- Easy setup
-- PostgreSQL addon available
+### Supabase
+- Free PostgreSQL database
+- Can host backend as Edge Functions
+- [supabase.com](https://supabase.com)
 
-## 📚 Additional Resources
+### Vercel (Frontend) + Railway (Backend)
+- Vercel: Best for frontend (always free)
+- Railway: Better backend hosting
+- [vercel.com](https://vercel.com) + [railway.app](https://railway.app)
 
-- [Vercel Documentation](https://vercel.com/docs)
-- [Render Documentation](https://render.com/docs)
-- [PostgreSQL on Render](https://render.com/docs/databases)
+## 📝 Next Steps
+
+1. Set up database migrations to run automatically
+2. Add health check endpoints
+3. Set up monitoring/logging
+4. Configure custom domain
+5. Set up CI/CD for automatic deployments
 

@@ -1,10 +1,11 @@
 services:
+  # Backend API Service
   - type: web
     name: migraine-tracker-api
     env: node
     plan: free
-    buildCommand: npm install
-    startCommand: npm start
+    buildCommand: cd migraine-tracker-api && npm install
+    startCommand: cd migraine-tracker-api && npm start
     envVars:
       - key: NODE_ENV
         value: production
@@ -33,7 +34,19 @@ services:
           name: migraine-tracker-db
           property: database
 
+  # Frontend Static Site
+  - type: web
+    name: migraine-tracker-web
+    env: static
+    plan: free
+    buildCommand: cd migraine-tracker-web && npm install && npm run build
+    staticPublishPath: ./migraine-tracker-web/dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false  # Set this manually after backend deploys: https://migraine-tracker-api.onrender.com/api
+
 databases:
+  # PostgreSQL Database
   - name: migraine-tracker-db
     plan: free
     databaseName: migrainetracker

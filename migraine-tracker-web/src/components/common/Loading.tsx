@@ -37,7 +37,7 @@ export const Loading = ({
 
   // Container styles
   const containerStyles = fullScreen
-    ? 'fixed inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm z-50'
+    ? 'fixed inset-0 flex items-center justify-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-50'
     : 'flex items-center justify-center py-8';
 
   return (
@@ -45,11 +45,11 @@ export const Loading = ({
       <div className="flex flex-col items-center gap-3">
         <Loader2 
           size={iconSize} 
-          className="animate-spin text-primary-600" 
+          className="animate-spin text-primary-600 dark:text-primary-400" 
           aria-hidden="true"
         />
         {text && (
-          <p className="text-gray-600 text-sm font-medium">
+          <p className="text-gray-600 dark:text-gray-300 text-sm font-medium">
             {text}
           </p>
         )}
@@ -85,7 +85,7 @@ export const Skeleton = ({
 
   return (
     <div
-      className={`animate-pulse bg-gray-200 ${width} ${height} ${roundedStyles[rounded]} ${className}`}
+      className={`animate-pulse bg-gray-200 dark:bg-gray-700 ${width} ${height} ${roundedStyles[rounded]} ${className}`}
       aria-hidden="true"
     />
   );

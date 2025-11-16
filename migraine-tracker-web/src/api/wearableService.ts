@@ -54,6 +54,7 @@ export interface UploadResponse {
   fieldMapping: Record<string, string>;
   unrecognizedFields: string[];
   errorDetails?: Array<{ timestamp: Date; error: string }>;
+  earliestDate?: string | null;
 }
 
 export interface UploadSession {

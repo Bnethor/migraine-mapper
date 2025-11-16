@@ -119,6 +119,11 @@ cd migraine-tracker-api
 git update-index --assume-unchanged db/init.sql 2>/dev/null || true
 git update-index --assume-unchanged db/migration_001_add_clinical_fields.sql 2>/dev/null || true
 git update-index --assume-unchanged db/migration_002_user_profile.sql 2>/dev/null || true
+git update-index --assume-unchanged db/migration_003_wearable_data.sql 2>/dev/null || true
+git update-index --assume-unchanged db/migration_004_upload_sessions.sql 2>/dev/null || true
+git update-index --assume-unchanged db/migration_005_migraine_day_markers.sql 2>/dev/null || true
+git update-index --assume-unchanged db/migration_006_summary_indicators.sql 2>/dev/null || true
+git update-index --assume-unchanged db/migration_007_migraine_correlations.sql 2>/dev/null || true
 cd ..
 echo -e "${GREEN}✅ Database files marked as locally ignored${NC}"
 

@@ -32,9 +32,9 @@ export const ErrorMessage = ({
 }: ErrorMessageProps) => {
   // Variant styles
   const variantStyles = {
-    inline: 'text-sm text-red-600 flex items-start gap-2',
-    banner: 'bg-red-50 border-l-4 border-red-500 p-4',
-    card: 'bg-red-50 border border-red-200 rounded-lg p-6',
+    inline: 'text-sm text-red-600 dark:text-red-400 flex items-start gap-2',
+    banner: 'bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 dark:border-red-400 p-4',
+    card: 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6',
   };
 
   if (variant === 'inline') {
@@ -51,15 +51,15 @@ export const ErrorMessage = ({
       <div className="flex items-start gap-3">
         {/* Icon */}
         <div className="flex-shrink-0">
-          <XCircle className="text-red-500" size={24} />
+          <XCircle className="text-red-500 dark:text-red-400" size={24} />
         </div>
 
         {/* Content */}
         <div className="flex-1">
-          <h3 className="text-sm font-semibold text-red-800 mb-1">
+          <h3 className="text-sm font-semibold text-red-800 dark:text-red-300 mb-1">
             {title}
           </h3>
-          <div className="text-sm text-red-700">
+          <div className="text-sm text-red-700 dark:text-red-400">
             {message}
           </div>
 
@@ -69,7 +69,7 @@ export const ErrorMessage = ({
               {onRetry && (
                 <button
                   onClick={onRetry}
-                  className="text-sm font-medium text-red-800 hover:text-red-900 underline focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
+                  className="text-sm font-medium text-red-800 dark:text-red-300 hover:text-red-900 dark:hover:text-red-200 underline focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
                 >
                   Try Again
                 </button>
@@ -77,7 +77,7 @@ export const ErrorMessage = ({
               {onDismiss && (
                 <button
                   onClick={onDismiss}
-                  className="text-sm font-medium text-red-600 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
+                  className="text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
                 >
                   Dismiss
                 </button>
@@ -90,7 +90,7 @@ export const ErrorMessage = ({
         {onDismiss && (
           <button
             onClick={onDismiss}
-            className="flex-shrink-0 text-red-500 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
+            className="flex-shrink-0 text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
             aria-label="Dismiss error"
           >
             <XCircle size={20} />
@@ -126,17 +126,17 @@ export const EmptyState = ({
   return (
     <div className={`text-center py-12 px-4 ${className}`}>
       {icon && (
-        <div className="flex justify-center mb-4 text-gray-400">
+        <div className="flex justify-center mb-4 text-gray-400 dark:text-gray-400">
           {icon}
         </div>
       )}
       
-      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
         {title}
       </h3>
       
       {description && (
-        <p className="text-gray-600 mb-6 max-w-md mx-auto">
+        <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
           {description}
         </p>
       )}
@@ -144,7 +144,7 @@ export const EmptyState = ({
       {action && (
         <button
           onClick={action.onClick}
-          className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors"
+          className="inline-flex items-center px-4 py-2 bg-primary-600 dark:bg-primary-500 text-white rounded-lg hover:bg-primary-700 dark:hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors"
         >
           {action.label}
         </button>

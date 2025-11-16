@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { getCalendarData, markMigraineDay, removeMigraineDay, type CalendarDay } from '../../api/calendarService';
+import { useSearchParams } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { getCalendarData, markMigraineDay, removeMigraineDay, removeAllMigraineDays, type CalendarDay } from '../../api/calendarService';
 import { processSummaryIndicators } from '../../api/summaryService';
 import {
   Layout,
@@ -19,8 +20,41 @@ import {
 // ============================================
 
 export const CalendarPage = () => {
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [searchParams] = useSearchParams();
+  const dateParam = searchParams.get('date');
+  
+  // Initialize with the date from URL parameter or current date
+  const getInitialDate = () => {
+    if (dateParam) {
+      try {
+        const parsedDate = new Date(dateParam);
+        // Validate the date
+        if (!isNaN(parsedDate.getTime())) {
+          return parsedDate;
+        }
+      } catch (e) {
+        console.error('Invalid date parameter:', dateParam);
+      }
+    }
+    return new Date();
+  };
+  
+  const [currentDate, setCurrentDate] = useState(getInitialDate);
   const queryClient = useQueryClient();
+  
+  // Update current date when URL parameter changes
+  useEffect(() => {
+    if (dateParam) {
+      try {
+        const parsedDate = new Date(dateParam);
+        if (!isNaN(parsedDate.getTime())) {
+          setCurrentDate(parsedDate);
+        }
+      } catch (e) {
+        console.error('Invalid date parameter:', dateParam);
+      }
+    }
+  }, [dateParam]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth() + 1; // 1-12
@@ -85,6 +119,28 @@ export const CalendarPage = () => {
     },
   });
 
+  // Remove all migraine days mutation
+  const removeAllMutation = useMutation({
+    mutationFn: () => removeAllMigraineDays(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar'] });
+    },
+  });
+
+  // Handle deselect all
+  const handleDeselectAll = () => {
+    const totalMigraineDays = calendarData?.data?.data?.totalMigraineDays || calendarData?.data?.totalMigraineDays || 0;
+    
+    if (totalMigraineDays === 0) {
+      alert('No migraine days to deselect.');
+      return;
+    }
+
+    if (window.confirm(`Are you sure you want to deselect all ${totalMigraineDays} migraine day markers? This action cannot be undone.`)) {
+      removeAllMutation.mutate();
+    }
+  };
+
   // Navigate months
   const navigateMonth = (direction: 'prev' | 'next') => {
     setCurrentDate((prev) => {
@@ -98,26 +154,28 @@ export const CalendarPage = () => {
     });
   };
 
-  // Handle day click
+  // Handle day click - allows manual override of automatic marking
   const handleDayClick = (day: CalendarDay, dayNumber: number) => {
     if (!day.hasData) {
       return; // Don't allow marking days without data
     }
 
+    // Days with entries are automatically marked
+    // Only allow unmarking if manually marked OR no entries exist
+    if (day.migraineCount && day.migraineCount > 0) {
+      // Has entries - don't allow toggling since it's auto-marked
+      return;
+    }
+
     // Ensure we use the correct date - construct it from the current month/year and day number
     // This avoids any timezone issues from the API response
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(dayNumber).padStart(2, '0')}`;
-    
-    // Log for debugging (can be removed later)
-    if (dateStr !== day.date) {
-      console.warn('Date mismatch:', { dayNumber, constructedDate: dateStr, apiDate: day.date });
-    }
 
     if (day.isMigraineDay) {
-      // Remove marker
+      // Remove manual marker
       removeMutation.mutate(dateStr);
     } else {
-      // Mark as migraine day
+      // Mark as migraine day manually
       markMutation.mutate({ date: dateStr, isMigraineDay: true });
     }
   };
@@ -149,45 +207,65 @@ export const CalendarPage = () => {
       <button
         key={day.date}
         onClick={() => handleDayClick(day, dayNumber)}
-        disabled={!day.hasData || markMutation.isPending || removeMutation.isPending}
+        disabled={!day.hasData || markMutation.isPending || removeMutation.isPending || (day.migraineCount && day.migraineCount > 0)}
         className={`
-          relative p-2 h-20 border border-gray-200 rounded-lg
+          relative p-2 h-20 border rounded-lg
           transition-all duration-200
-          ${day.hasData
-            ? 'hover:bg-gray-50 hover:border-blue-300 cursor-pointer'
-            : 'bg-gray-50 opacity-50 cursor-not-allowed'
+          ${day.hasData && (!day.migraineCount || day.migraineCount === 0)
+            ? 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-blue-300 dark:hover:border-blue-500 cursor-pointer'
+            : day.hasData
+            ? 'border-gray-200 dark:border-gray-700 cursor-default'
+            : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30 opacity-50 dark:opacity-40 cursor-not-allowed'
           }
-          ${isToday ? 'ring-2 ring-blue-500' : ''}
-          ${day.isMigraineDay ? 'bg-red-50 border-red-300' : ''}
+          ${isToday ? 'ring-2 ring-blue-500 dark:ring-blue-400' : ''}
+          ${day.isMigraineDay ? 'bg-red-50 dark:bg-red-900/30 border-red-300 dark:border-red-700' : ''}
           ${markMutation.isPending || removeMutation.isPending ? 'opacity-50' : ''}
         `}
         title={
-          day.hasData
-            ? day.isMigraineDay
-              ? 'Click to unmark as migraine day'
-              : 'Click to mark as migraine day'
-            : 'No wearable data available for this day'
+          !day.hasData
+            ? 'No wearable data available for this day'
+            : day.migraineCount && day.migraineCount > 0
+            ? `${day.migraineCount} migraine ${day.migraineCount === 1 ? 'entry' : 'entries'} (automatically marked)`
+            : day.isMigraineDay
+            ? 'Click to unmark (manually marked day)'
+            : 'Click to manually mark as migraine day'
         }
       >
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between mb-1">
             <span
               className={`text-sm font-medium ${
-                isToday ? 'text-blue-600' : day.isMigraineDay ? 'text-red-700' : 'text-gray-900'
+                isToday 
+                  ? 'text-blue-600 dark:text-blue-400' 
+                  : day.isMigraineDay 
+                  ? 'text-red-700 dark:text-red-400' 
+                  : 'text-gray-900 dark:text-gray-100'
               }`}
             >
               {dayNumber}
             </span>
             {day.isMigraineDay && (
-              <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+              <div className="flex items-center gap-1">
+                {day.migraineCount && day.migraineCount > 1 && (
+                  <span className="text-xs font-bold text-red-700 dark:text-red-400">{day.migraineCount}</span>
+                )}
+                <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0" />
+              </div>
             )}
           </div>
+          <div className="flex flex-col gap-1 mt-auto">
           {day.hasData && (
-            <div className="flex items-center gap-1 mt-auto">
-              <CheckCircle2 className="w-3 h-3 text-green-600 flex-shrink-0" />
-              <span className="text-xs text-gray-600">{day.dataPoints}</span>
+              <div className="flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-green-600 dark:text-green-400 flex-shrink-0" />
+                <span className="text-xs text-gray-600 dark:text-gray-400">{day.dataPoints}</span>
+              </div>
+            )}
+            {day.migraineCount && day.migraineCount > 0 && (
+              <div className="text-xs font-medium text-red-700 dark:text-red-400">
+                {day.migraineCount} {day.migraineCount === 1 ? 'entry' : 'entries'}
             </div>
           )}
+          </div>
         </div>
       </button>
     );
@@ -248,9 +326,9 @@ export const CalendarPage = () => {
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Migraine Calendar</h1>
-          <p className="mt-2 text-gray-600">
-            View days with wearable data and mark migraine days for analysis.
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Migraine Calendar</h1>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">
+            Days with migraine entries are automatically marked. View your wearable data and track patterns.
           </p>
         </div>
 
@@ -259,15 +337,15 @@ export const CalendarPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <div className="p-4">
-                <p className="text-sm text-gray-600">Days with Data</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Days with Data</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   {calendarData?.data?.data?.totalDaysWithData || calendarData?.data?.totalDaysWithData || 0}
                 </p>
               </div>
             </Card>
             <Card>
               <div className="p-4">
-                <p className="text-sm text-gray-600">Migraine Days</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Migraine Days</p>
                 <p className="text-2xl font-bold text-red-600">
                   {calendarData?.data?.data?.totalMigraineDays || calendarData?.data?.totalMigraineDays || 0}
                 </p>
@@ -275,8 +353,8 @@ export const CalendarPage = () => {
             </Card>
             <Card>
               <div className="p-4">
-                <p className="text-sm text-gray-600">Current Month</p>
-                <p className="text-2xl font-bold text-gray-900">{getMonthName()}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Current Month</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{getMonthName()}</p>
               </div>
             </Card>
           </div>
@@ -285,6 +363,7 @@ export const CalendarPage = () => {
         {/* Calendar */}
         <Card>
           <CardHeader>
+            <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2">
@@ -292,7 +371,7 @@ export const CalendarPage = () => {
                   {getMonthName()}
                 </CardTitle>
                 <CardDescription>
-                  Click on days with data to mark or unmark them as migraine days
+                    Days with migraine logs are automatically marked and counted
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
@@ -321,6 +400,22 @@ export const CalendarPage = () => {
                   <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>
+              </div>
+              
+              {/* Deselect All Button */}
+              {((calendarData?.data?.data?.totalMigraineDays || calendarData?.data?.totalMigraineDays || 0) > 0) && (
+                <div className="flex justify-end">
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={handleDeselectAll}
+                    disabled={removeAllMutation.isPending}
+                  >
+                    <XCircle className="w-4 h-4 mr-2" />
+                    {removeAllMutation.isPending ? 'Deselecting...' : 'Deselect All'}
+                  </Button>
+                </div>
+              )}
             </div>
           </CardHeader>
 
@@ -330,7 +425,7 @@ export const CalendarPage = () => {
               {weekDays.map((day) => (
                 <div
                   key={day}
-                  className="text-center text-sm font-medium text-gray-700 py-2"
+                  className="text-center text-sm font-medium text-gray-700 dark:text-gray-300 py-2"
                 >
                   {day}
                 </div>
@@ -343,23 +438,23 @@ export const CalendarPage = () => {
             </div>
 
             {/* Legend */}
-            <div className="mt-6 pt-6 border-t border-gray-200">
+            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
               <div className="flex flex-wrap items-center gap-6 text-sm">
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-blue-500 rounded"></div>
-                  <span className="text-gray-600">Today</span>
+                  <span className="text-gray-600 dark:text-gray-400">Today</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600" />
-                  <span className="text-gray-600">Has wearable data</span>
+                  <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
+                  <span className="text-gray-600 dark:text-gray-400">Has wearable data</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 bg-red-50 border border-red-300 rounded"></div>
-                  <span className="text-gray-600">Migraine day</span>
+                  <span className="text-gray-600 dark:text-gray-400">Migraine day</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-gray-50 border border-gray-200 rounded opacity-50"></div>
-                  <span className="text-gray-600">No data available</span>
+                  <div className="w-4 h-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded opacity-50"></div>
+                  <span className="text-gray-600 dark:text-gray-400">No data available</span>
                 </div>
               </div>
             </div>

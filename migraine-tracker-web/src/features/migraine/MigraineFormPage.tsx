@@ -102,6 +102,7 @@ export const MigraineFormPage = () => {
       queryClient.invalidateQueries({ queryKey: ['migraines'] });
       queryClient.invalidateQueries({ queryKey: ['migraine-stats'] });
       queryClient.invalidateQueries({ queryKey: ['recent-migraines'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar'] }); // Update calendar
       navigate('/migraines');
     },
     onError: (err: any) => {
@@ -117,6 +118,7 @@ export const MigraineFormPage = () => {
       queryClient.invalidateQueries({ queryKey: ['migraines'] });
       queryClient.invalidateQueries({ queryKey: ['migraine', id] });
       queryClient.invalidateQueries({ queryKey: ['migraine-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar'] }); // Update calendar
       navigate(`/migraines/${id}`);
     },
     onError: (err: any) => {
@@ -177,10 +179,10 @@ export const MigraineFormPage = () => {
             Back
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
               {isEditMode ? 'Edit Migraine Entry' : 'New Migraine Entry'}
             </h1>
-            <p className="text-gray-600 mt-1">
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
               {isEditMode 
                 ? 'Update your migraine details' 
                 : 'Log a new migraine episode'}
@@ -229,7 +231,7 @@ export const MigraineFormPage = () => {
 
             {/* Intensity Slider */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Pain Intensity <span className="text-red-500">*</span>
               </label>
               <Controller
@@ -274,12 +276,12 @@ export const MigraineFormPage = () => {
 
             {/* Pain Location */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Pain Location
               </label>
               <select
                 {...register('location')}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100 dark:bg-gray-700"
                 disabled={isLoading}
               >
                 <option value="">Select location</option>
@@ -323,13 +325,13 @@ export const MigraineFormPage = () => {
 
             {/* Notes */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Additional Notes (Optional)
               </label>
               <textarea
                 {...register('notes')}
                 rows={4}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100 dark:bg-gray-700"
                 placeholder="Any additional details about this episode..."
                 disabled={isLoading}
               />

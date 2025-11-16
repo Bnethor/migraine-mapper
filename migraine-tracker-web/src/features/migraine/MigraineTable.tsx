@@ -52,24 +52,24 @@ const MigraineTable = ({ entries }: MigraineTableProps) => {
       {/* Desktop Table */}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Date
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Time
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Intensity
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Triggers
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Location
               </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Actions
               </th>
             </tr>
@@ -78,12 +78,12 @@ const MigraineTable = ({ entries }: MigraineTableProps) => {
             {entries.map((entry) => (
               <tr 
                 key={entry.id}
-                className="hover:bg-gray-50 transition-colors"
+                className="hover:bg-gray-50 dark:bg-gray-800 transition-colors"
               >
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                   {format(new Date(entry.date), 'MMM dd, yyyy')}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                   {entry.startTime}
                   {entry.endTime && ` - ${entry.endTime}`}
                 </td>
@@ -93,19 +93,19 @@ const MigraineTable = ({ entries }: MigraineTableProps) => {
                     {entry.intensity}/5
                   </span>
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-600">
+                <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
                   {entry.triggers && entry.triggers.length > 0 ? (
                     <div className="flex flex-wrap gap-1">
                       {entry.triggers.slice(0, 2).map((trigger, index) => (
                         <span
                           key={index}
-                          className="inline-block px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded"
+                          className="inline-block px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded"
                         >
                           {trigger}
                         </span>
                       ))}
                       {entry.triggers.length > 2 && (
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
                           +{entry.triggers.length - 2}
                         </span>
                       )}
@@ -114,7 +114,7 @@ const MigraineTable = ({ entries }: MigraineTableProps) => {
                     <span className="text-gray-400">—</span>
                   )}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 capitalize">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400 capitalize">
                   {entry.location?.replace('-', ' ') || '—'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -154,10 +154,10 @@ const MigraineTable = ({ entries }: MigraineTableProps) => {
           <div key={entry.id} className="p-4 space-y-3">
             <div className="flex items-start justify-between">
               <div>
-                <p className="font-medium text-gray-900">
+                <p className="font-medium text-gray-900 dark:text-gray-100">
                   {format(new Date(entry.date), 'MMM dd, yyyy')}
                 </p>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   {entry.startTime}
                   {entry.endTime && ` - ${entry.endTime}`}
                 </p>
@@ -173,7 +173,7 @@ const MigraineTable = ({ entries }: MigraineTableProps) => {
                 {entry.triggers.map((trigger, index) => (
                   <span
                     key={index}
-                    className="inline-block px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded"
+                    className="inline-block px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded"
                   >
                     {trigger}
                   </span>

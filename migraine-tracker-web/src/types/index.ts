@@ -133,8 +133,16 @@ export interface ApiError {
  */
 export interface MigraineStats {
   totalEntries: number;
+  migraineEntries?: number;
+  wearableDays?: number;
   averageIntensity: number;
-  mostCommonTriggers: { trigger: string; count: number }[];
+  mostCommonTriggers: { trigger: string; count: number; correlationStrength?: number; confidenceScore?: number }[];
+  topTrigger?: { 
+    trigger: string; 
+    count: number; 
+    correlationStrength?: number; 
+    confidenceScore?: number;
+  };
   frequencyByMonth: { month: string; count: number }[];
   intensityTrend: { date: string; intensity: number }[];
 }

@@ -3,14 +3,15 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { User, Save } from 'lucide-react';
+import { User, Save, AlertCircle, CheckCircle } from 'lucide-react';
 import { profileService } from '../../api/profileService';
 import { 
   Layout, 
   Card, 
   Button,
   ErrorMessage,
-  Loading 
+  Loading,
+  Modal
 } from '../../components/common';
 import { ButtonGroup, ToggleButton } from '../../components/form';
 import type { UserProfile } from '../../types';
@@ -56,6 +57,8 @@ export const ProfilePage = () => {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [showIncompleteModal, setShowIncompleteModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // Fetch existing profile
   const { data: profile, isLoading: loadingProfile } = useQuery({
@@ -105,14 +108,32 @@ export const ProfilePage = () => {
     }
   }, [profile, reset]);
 
+  // Show modal when profile is incomplete
+  useEffect(() => {
+    if (profile && !profileService.isProfileComplete(profile)) {
+      setShowIncompleteModal(true);
+    }
+  }, [profile]);
+
   // Update mutation
   const updateMutation = useMutation({
     mutationFn: (data: Partial<UserProfile>) => profileService.updateProfile(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+      // Also invalidate dashboard to update notification
+      queryClient.invalidateQueries({ queryKey: ['migraine-stats'] });
       setSuccess(true);
       setError(null);
-      setTimeout(() => setSuccess(false), 3000);
+      setShowSuccessModal(true);
+      
+      // Check if profile is now complete and close incomplete modal
+      const updatedProfile = await queryClient.fetchQuery({ 
+        queryKey: ['user-profile'],
+        queryFn: () => profileService.getProfile()
+      });
+      if (updatedProfile && profileService.isProfileComplete(updatedProfile)) {
+        setShowIncompleteModal(false);
+      }
     },
     onError: (err: any) => {
       setError(err?.message || 'Failed to update profile');
@@ -127,6 +148,7 @@ export const ProfilePage = () => {
   };
 
   const isLoading = updateMutation.isPending;
+  const isProfileComplete = profileService.isProfileComplete(profile);
 
   if (loadingProfile) {
     return (
@@ -141,12 +163,12 @@ export const ProfilePage = () => {
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <User size={32} className="text-primary-600" />
+          <User size={32} className="text-primary-600 dark:text-primary-400" />
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
               Clinical Profile
             </h1>
-            <p className="text-gray-600 mt-1">
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
               Your typical migraine characteristics for better tracking
             </p>
           </div>
@@ -155,15 +177,7 @@ export const ProfilePage = () => {
         {/* Form Card */}
         <Card padding="lg">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-            {/* Success/Error Messages */}
-            {success && (
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-green-800 font-medium">
-                  ✓ Profile updated successfully!
-                </p>
-              </div>
-            )}
-            
+            {/* Error Messages */}
             {error && (
               <ErrorMessage
                 variant="banner"
@@ -174,7 +188,7 @@ export const ProfilePage = () => {
 
             {/* Episode Characteristics */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                 Typical Episode Characteristics
               </h2>
               
@@ -218,11 +232,12 @@ export const ProfilePage = () => {
                   />
                 )}
               />
+
             </div>
 
             {/* Pain Characteristics */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                 Typical Pain Characteristics
               </h2>
               
@@ -284,7 +299,7 @@ export const ProfilePage = () => {
 
             {/* Common Symptoms */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                 Common Symptoms You Experience
               </h2>
               
@@ -345,7 +360,7 @@ export const ProfilePage = () => {
 
             {/* Aura Symptoms */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                 Typical Aura Symptoms
               </h2>
               
@@ -390,7 +405,7 @@ export const ProfilePage = () => {
 
             {/* Neurological Symptoms */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                 Neurological Symptoms You Experience
               </h2>
               
@@ -529,7 +544,7 @@ export const ProfilePage = () => {
 
             {/* Family History & Diagnosis */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                 Additional Information
               </h2>
               
@@ -548,12 +563,12 @@ export const ProfilePage = () => {
               />
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Diagnosed Migraine Type
                 </label>
                 <select
                   {...register('diagnosedType')}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100 dark:disabled:bg-gray-800 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                   disabled={isLoading}
                 >
                   <option value="">Not diagnosed / Unknown</option>
@@ -569,7 +584,7 @@ export const ProfilePage = () => {
             </div>
 
             {/* Action Button */}
-            <div className="pt-4 border-t">
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
               <Button
                 type="submit"
                 variant="primary"
@@ -584,6 +599,93 @@ export const ProfilePage = () => {
           </form>
         </Card>
       </div>
+
+      {/* Profile Incomplete Modal */}
+      <Modal
+        isOpen={showIncompleteModal}
+        onClose={() => setShowIncompleteModal(false)}
+        title="Profile Incomplete"
+        size="md"
+        footer={
+          <div className="flex items-center justify-end gap-3">
+            <Button
+              variant="secondary"
+              onClick={() => setShowIncompleteModal(false)}
+            >
+              I'll Fill It Later
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                setShowIncompleteModal(false);
+                // Scroll to the form
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            >
+              Fill Profile Now
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0">
+              <div className="p-3 bg-yellow-100 dark:bg-yellow-900/50 rounded-lg">
+                <AlertCircle className="text-yellow-600 dark:text-yellow-400" size={24} />
+              </div>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                Complete Your Clinical Profile
+              </h3>
+              <p className="text-gray-700 dark:text-gray-300 mb-4">
+                Your clinical profile helps us provide better insights and pattern analysis. 
+                Please fill out at least your typical episode characteristics (duration and frequency) 
+                to get the most accurate recommendations.
+              </p>
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <p className="text-sm text-blue-800 dark:text-blue-300">
+                  <strong>Required fields:</strong> Typical Duration and Monthly Frequency
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title="Profile Saved Successfully"
+        size="sm"
+        footer={
+          <div className="flex items-center justify-end">
+            <Button
+              variant="primary"
+              onClick={() => setShowSuccessModal(false)}
+            >
+              Got It
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0">
+              <div className="p-3 bg-green-100 dark:bg-green-900/50 rounded-lg">
+                <CheckCircle className="text-green-600 dark:text-green-400" size={24} />
+              </div>
+            </div>
+            <div className="flex-1">
+              <p className="text-gray-700 dark:text-gray-300">
+                Your clinical profile has been saved successfully! Your profile data will now be used 
+                to provide better insights and pattern analysis.
+              </p>
+            </div>
+          </div>
+        </div>
+      </Modal>
     </Layout>
   );
 };

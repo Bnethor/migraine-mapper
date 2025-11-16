@@ -52,7 +52,7 @@ const RecentEntries = ({ entries }: RecentEntriesProps) => {
         <div
           key={entry.id}
           onClick={() => navigate(`/migraines/${entry.id}`)}
-          className="py-4 px-2 hover:bg-gray-50 cursor-pointer transition-colors rounded-lg"
+          className="py-4 px-2 hover:bg-gray-50 dark:bg-gray-800 cursor-pointer transition-colors rounded-lg"
           role="button"
           tabIndex={0}
           onKeyDown={(e) => {
@@ -65,7 +65,7 @@ const RecentEntries = ({ entries }: RecentEntriesProps) => {
             {/* Entry Info */}
             <div className="flex-1 space-y-2">
               {/* Date and Time */}
-              <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
+              <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
                 <div className="flex items-center gap-1.5">
                   <Calendar size={16} />
                   <span>{format(new Date(entry.date), 'MMM dd, yyyy')}</span>
@@ -83,13 +83,13 @@ const RecentEntries = ({ entries }: RecentEntriesProps) => {
                   {entry.triggers.slice(0, 3).map((trigger, index) => (
                     <span
                       key={index}
-                      className="inline-flex items-center px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-md"
+                      className="inline-flex items-center px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md"
                     >
                       {trigger}
                     </span>
                   ))}
                   {entry.triggers.length > 3 && (
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
                       +{entry.triggers.length - 3} more
                     </span>
                   )}
@@ -98,7 +98,7 @@ const RecentEntries = ({ entries }: RecentEntriesProps) => {
 
               {/* Notes Preview */}
               {entry.notes && (
-                <p className="text-sm text-gray-600 line-clamp-1">
+                <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-1">
                   {entry.notes}
                 </p>
               )}

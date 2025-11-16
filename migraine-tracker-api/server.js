@@ -522,19 +522,59 @@ app.post('/api/profile', authenticate, async (req, res) => {
 // Get dashboard statistics
 app.get('/api/migraine/statistics', authenticate, async (req, res) => {
   try {
-    // Get total entries and average intensity
-    const statsResult = await query(
+    // Get migraine entries statistics
+    const migraineStatsResult = await query(
       `SELECT 
-         COUNT(*) as total_entries,
+         COUNT(*) as migraine_entries,
          COALESCE(AVG(intensity), 0) as average_intensity
        FROM migraine_entries
        WHERE user_id = $1`,
       [req.userId]
     );
 
-    const { total_entries, average_intensity } = statsResult.rows[0];
+    const { migraine_entries, average_intensity } = migraineStatsResult.rows[0];
 
-    // Get top triggers
+    // Get count of unique days with wearable data
+    const wearableStatsResult = await query(
+      `SELECT COUNT(DISTINCT DATE(timestamp)) as wearable_days
+       FROM wearable_data
+       WHERE user_id = $1`,
+      [req.userId]
+    );
+
+    const { wearable_days } = wearableStatsResult.rows[0];
+    
+    // Total entries = migraine logs + days with wearable data
+    const totalEntries = parseInt(migraine_entries) + parseInt(wearable_days || 0);
+
+    // Get top trigger based on correlation strength from migraine_correlations table
+    const correlationResult = await query(
+      `SELECT pattern_name, pattern_type, correlation_strength, confidence_score
+       FROM migraine_correlations
+       WHERE user_id = $1
+       ORDER BY ABS(correlation_strength) * confidence_score DESC
+       LIMIT 1`,
+      [req.userId]
+    );
+
+    console.log(`[Dashboard Stats] User ${req.userId} - Found ${correlationResult.rows.length} correlation patterns`);
+    if (correlationResult.rows.length > 0) {
+      console.log(`[Dashboard Stats] Top pattern:`, correlationResult.rows[0]);
+    }
+
+    let topTrigger = { trigger: 'None', count: 0, correlationStrength: null };
+    if (correlationResult.rows.length > 0) {
+      const pattern = correlationResult.rows[0];
+      topTrigger = {
+        trigger: pattern.pattern_name,
+        count: 0, // Not frequency-based anymore
+        correlationStrength: parseFloat(pattern.correlation_strength),
+        confidenceScore: parseFloat(pattern.confidence_score)
+      };
+      console.log(`[Dashboard Stats] Top trigger set to:`, topTrigger);
+    } else {
+      console.log(`[Dashboard Stats] No correlation patterns found, falling back to frequency-based triggers`);
+      // Fallback to traditional frequency-based triggers if no correlations found
     const triggersResult = await query(
       `SELECT triggers
        FROM migraine_entries
@@ -554,28 +594,57 @@ app.get('/api/migraine/statistics', authenticate, async (req, res) => {
       }
     });
 
-    const topTriggers = Object.entries(triggerCounts)
+      const topTriggersByFreq = Object.entries(triggerCounts)
       .map(([trigger, count]) => ({ trigger, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
+        .sort((a, b) => b.count - a.count);
+      
+      if (topTriggersByFreq.length > 0) {
+        topTrigger = topTriggersByFreq[0];
+      }
+    }
 
-    // Get monthly frequency (last 6 months)
-    const monthlyResult = await query(
+    // Get monthly frequency (last 6 months) including both migraine entries and marked migraine days
+    const monthlyMigraineResult = await query(
       `SELECT 
          TO_CHAR(start_time, 'Mon YYYY') as month,
          COUNT(*) as count
        FROM migraine_entries
        WHERE user_id = $1
          AND start_time >= NOW() - INTERVAL '6 months'
-       GROUP BY TO_CHAR(start_time, 'YYYY-MM'), TO_CHAR(start_time, 'Mon YYYY')
-       ORDER BY TO_CHAR(start_time, 'YYYY-MM')`,
+       GROUP BY TO_CHAR(start_time, 'YYYY-MM'), TO_CHAR(start_time, 'Mon YYYY')`,
       [req.userId]
     );
+
+    // Get marked migraine days from calendar
+    const monthlyMarkedDaysResult = await query(
+      `SELECT 
+         TO_CHAR(date, 'Mon YYYY') as month,
+         COUNT(*) as count
+       FROM migraine_day_markers
+       WHERE user_id = $1
+         AND is_migraine_day = true
+         AND date >= CURRENT_DATE - INTERVAL '6 months'
+       GROUP BY TO_CHAR(date, 'YYYY-MM'), TO_CHAR(date, 'Mon YYYY')`,
+      [req.userId]
+    );
+
+    // Combine and deduplicate monthly counts
+    const monthMap = new Map();
+    
+    monthlyMigraineResult.rows.forEach(row => {
+      monthMap.set(row.month, parseInt(row.count));
+    });
+    
+    // Add marked days (these might overlap with entries, but calendar marks are primary)
+    monthlyMarkedDaysResult.rows.forEach(row => {
+      const existing = monthMap.get(row.month) || 0;
+      // Take the max to avoid double counting
+      monthMap.set(row.month, Math.max(existing, parseInt(row.count)));
+    });
 
     // Fill in missing months with zero counts
     const monthlyFrequency = [];
     const now = new Date();
-    const monthMap = new Map(monthlyResult.rows.map(row => [row.month, parseInt(row.count)]));
 
     for (let i = 5; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -589,9 +658,12 @@ app.get('/api/migraine/statistics', authenticate, async (req, res) => {
     res.json({
       success: true,
       data: {
-        totalEntries: parseInt(total_entries),
+        totalEntries: totalEntries,
+        migraineEntries: parseInt(migraine_entries),
+        wearableDays: parseInt(wearable_days || 0),
         averageIntensity: Math.round(parseFloat(average_intensity) * 10) / 10,
-        mostCommonTriggers: topTriggers,
+        mostCommonTriggers: [topTrigger],
+        topTrigger: topTrigger,
         frequencyByMonth: monthlyFrequency,
         intensityTrend: [] // Not implemented yet but expected by frontend
       }
@@ -1117,6 +1189,17 @@ app.post('/api/wearable/upload', authenticate, upload.single('file'), async (req
     let updatedCount = 0;
     let skippedCount = 0;
     const errors = [];
+    
+    // Track earliest date in the uploaded data
+    let earliestDate = null;
+    for (const row of parsedData.data) {
+      if (row.timestamp) {
+        const currentTimestamp = new Date(row.timestamp);
+        if (!earliestDate || currentTimestamp < earliestDate) {
+          earliestDate = currentTimestamp;
+        }
+      }
+    }
 
     for (const row of parsedData.data) {
       try {
@@ -1245,7 +1328,8 @@ app.post('/api/wearable/upload', authenticate, upload.single('file'), async (req
         source,
         fieldMapping: parsedData.fieldMapping,
         unrecognizedFields: parsedData.unrecognizedFields,
-        errorDetails: errors.length > 0 ? errors : undefined
+        errorDetails: errors.length > 0 ? errors : undefined,
+        earliestDate: earliestDate ? earliestDate.toISOString() : null
       },
       message: `Successfully processed ${insertedCount + updatedCount} of ${parsedData.data.length} rows (${insertedCount} new, ${updatedCount} updated, ${skippedCount} skipped)`
     });
@@ -1536,6 +1620,63 @@ app.post('/api/wearable/cleanup-orphaned', authenticate, async (req, res) => {
 // CALENDAR & MIGRAINE DAY MARKERS ROUTES
 // ============================================
 
+// Sync all existing migraine entries to calendar
+app.post('/api/calendar/sync-entries', authenticate, async (req, res) => {
+  try {
+    // Get all unique dates from migraine_entries for this user
+    const entriesResult = await query(
+      `SELECT DISTINCT DATE(start_time) as date, COUNT(*) as count
+       FROM migraine_entries
+       WHERE user_id = $1
+       GROUP BY DATE(start_time)`,
+      [req.userId]
+    );
+
+    let synced = 0;
+    let errors = 0;
+
+    for (const row of entriesResult.rows) {
+      try {
+        const dateStr = typeof row.date === 'string' 
+          ? row.date 
+          : row.date.toISOString().split('T')[0];
+        
+        await query(
+          `INSERT INTO migraine_day_markers (user_id, date, is_migraine_day)
+           VALUES ($1, $2::date, true)
+           ON CONFLICT (user_id, date)
+           DO UPDATE SET
+             is_migraine_day = true,
+             updated_at = CURRENT_TIMESTAMP`,
+          [req.userId, dateStr]
+        );
+        synced++;
+      } catch (error) {
+        console.error('Error syncing entry:', error);
+        errors++;
+      }
+    }
+
+    console.log(`[Calendar Sync] User ${req.userId} - Synced ${synced} days, ${errors} errors`);
+
+    res.json({
+      success: true,
+      data: {
+        synced,
+        errors,
+        total: entriesResult.rows.length
+      },
+      message: `Successfully synced ${synced} migraine days to calendar`
+    });
+  } catch (error) {
+    console.error('Calendar sync error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error syncing calendar'
+    });
+  }
+});
+
 // Get calendar data (days with wearable data and migraine markers)
 app.get('/api/calendar', authenticate, async (req, res) => {
   try {
@@ -1582,6 +1723,26 @@ app.get('/api/calendar', authenticate, async (req, res) => {
        ORDER BY date`,
       [req.userId, startDateStr, endDateStr]
     );
+    
+    // Get migraine entry counts per day for this month
+    const migraineEntriesResult = await query(
+      `SELECT DATE(start_time) as date, COUNT(*) as migraine_count
+       FROM migraine_entries
+       WHERE user_id = $1
+         AND start_time >= $2
+         AND start_time <= $3
+       GROUP BY DATE(start_time)
+       ORDER BY DATE(start_time)`,
+      [req.userId, startDate, endDate]
+    );
+    
+    const migraineEntryCounts = new Map();
+    migraineEntriesResult.rows.forEach(row => {
+      const dateStr = typeof row.date === 'string' 
+        ? row.date 
+        : row.date.toISOString().split('T')[0];
+      migraineEntryCounts.set(dateStr, parseInt(row.migraine_count));
+    });
     
     // Combine the data - PostgreSQL DATE type returns as string in YYYY-MM-DD format
     // But we need to handle it properly to avoid timezone issues
@@ -1641,11 +1802,14 @@ app.get('/api/calendar', authenticate, async (req, res) => {
         return rowDateStr === dateStr;
       });
       
+      const migraineCount = migraineEntryCounts.get(dateStr) || 0;
+      
       calendarDays.push({
         date: dateStr,
         hasData: daysWithData.has(dateStr),
         dataPoints: dataPointRow ? parseInt(dataPointRow.data_points) : 0,
-        isMigraineDay: marker?.isMigraineDay || false,
+        isMigraineDay: marker?.isMigraineDay || migraineCount > 0, // Auto-mark if entries exist
+        migraineCount: migraineCount,
         severity: marker?.severity || null,
         notes: marker?.notes || null
       });
@@ -1653,14 +1817,40 @@ app.get('/api/calendar', authenticate, async (req, res) => {
       currentDate.setDate(currentDate.getDate() + 1);
     }
     
+    // Count total migraine days (from markers + entries)
+    const uniqueMigraineDays = new Set();
+    
+    // Add manually marked days
+    migraineMarkersResult.rows.forEach(row => {
+      if (row.is_migraine_day) {
+        const dateStr = typeof row.date === 'string' ? row.date : row.date.toISOString().split('T')[0];
+        uniqueMigraineDays.add(dateStr);
+      }
+    });
+    
+    // Add days with migraine entries
+    migraineEntryCounts.forEach((count, dateStr) => {
+      if (count > 0) {
+        uniqueMigraineDays.add(dateStr);
+      }
+    });
+
+    // Count total days with data (wearable data + migraine entries)
+    const allDaysWithData = new Set([...daysWithData]);
+    migraineEntryCounts.forEach((count, dateStr) => {
+      if (count > 0) {
+        allDaysWithData.add(dateStr);
+      }
+    });
+    
     res.json({
       success: true,
       data: {
         year: targetYear,
         month: targetMonth + 1,
         days: calendarDays,
-        totalDaysWithData: daysWithData.size,
-        totalMigraineDays: migraineMarkersResult.rows.filter(r => r.is_migraine_day).length
+        totalDaysWithData: allDaysWithData.size,
+        totalMigraineDays: uniqueMigraineDays.size
       }
     });
   } catch (error) {
@@ -1793,6 +1983,30 @@ app.delete('/api/calendar/migraine-day/:date', authenticate, async (req, res) =>
     res.status(500).json({
       success: false,
       message: 'Error removing migraine day marker'
+    });
+  }
+});
+
+// Remove all migraine day markers for user
+app.delete('/api/calendar/migraine-days/all', authenticate, async (req, res) => {
+  try {
+    const result = await query(
+      'DELETE FROM migraine_day_markers WHERE user_id = $1 RETURNING id',
+      [req.userId]
+    );
+    
+    res.json({
+      success: true,
+      message: 'All migraine day markers removed successfully',
+      data: {
+        deletedCount: result.rowCount || 0
+      }
+    });
+  } catch (error) {
+    console.error('Remove all migraine days error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error removing all migraine day markers'
     });
   }
 });

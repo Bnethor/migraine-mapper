@@ -85,16 +85,16 @@ export const Modal = ({
       aria-labelledby={title ? 'modal-title' : undefined}
     >
       <div
-        className={`bg-white rounded-lg shadow-2xl w-full ${sizeStyles[size]} animate-in zoom-in-95 duration-200`}
+        className={`bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full ${sizeStyles[size]} animate-in zoom-in-95 duration-200`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         {(title || showCloseButton) && (
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
             {title && (
               <h2
                 id="modal-title"
-                className="text-xl font-semibold text-gray-900"
+                className="text-xl font-semibold text-gray-900 dark:text-gray-100"
               >
                 {title}
               </h2>
@@ -103,7 +103,7 @@ export const Modal = ({
             {showCloseButton && (
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-lg p-1"
+                className="text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-lg p-1"
                 aria-label="Close modal"
               >
                 <X size={24} />
@@ -119,7 +119,7 @@ export const Modal = ({
 
         {/* Footer */}
         {footer && (
-          <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
+          <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
             {footer}
           </div>
         )}
@@ -173,7 +173,7 @@ export const ConfirmDialog = ({
           <button
             onClick={onClose}
             disabled={isLoading}
-            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50"
+            className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-white border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50"
           >
             {cancelLabel}
           </button>
@@ -187,7 +187,7 @@ export const ConfirmDialog = ({
         </>
       }
     >
-      <p className="text-gray-700">{message}</p>
+      <p className="text-gray-700 dark:text-gray-300">{message}</p>
     </Modal>
   );
 };
